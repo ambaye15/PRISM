@@ -1,0 +1,62 @@
+[build-system]
+requires = ["hatchling==1.27.0"]
+build-backend = "hatchling.build"
+
+[project]
+name = "prism-smm"
+version = "0.2.0"
+description = "Interpretable video measurements of stereotypical motor movements."
+readme = "README.md"
+requires-python = ">=3.10,<3.13"
+license = {}
+authors = [{}]
+dependencies = [
+  "numpy==1.26.4",
+  "opencv-python-headless==4.10.0.84",
+  "pandas>=2.2,<3",
+  "scipy>=1.11,<2",
+]
+
+[project.optional-dependencies]
+topology = [
+  "matplotlib>=3.8,<4",
+  "ripser>=0.6.10,<1",
+]
+validation = [
+  "matplotlib>=3.8,<4",
+  "pyyaml>=6,<7",
+  "ripser>=0.6.10,<1",
+  "skeleton-lab @ git+https://github.com/vik1000-coder/skeleton-lab.git@207c9ad39f43163739f96a2eb0467f2e5d466ef4",
+]
+tracking = [
+  "torch==2.1.0",
+  "torchvision==0.16.0",
+]
+stats = [
+  "matplotlib>=3.8,<4",
+  "statsmodels>=0.14,<1",
+]
+dev = [
+  "pytest>=8,<10",
+  "ruff>=0.11,<1",
+]
+
+[project.scripts]
+prism-flow = "prism.run_optical_flow:main"
+prism-topology = "prism.run_sliding_window_topology:main"
+prism-assemble = "prism.assemble_prism_features:main"
+prism-variability = "prism.prism_variability_analysis:main"
+prism-longitudinal = "prism.prism_longitudinal_variability:main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["prism"]
+
+[tool.hatch.metadata]
+allow-direct-references = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
