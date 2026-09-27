@@ -42,7 +42,7 @@ Welch frequency is retained as a benchmark comparator, not the primary reported 
 For finite H1 classes ordered by decreasing persistence `m_i = d_i - b_i`, periodicity is
 
 $$
-PS = exp(-b1 / 2)\frac{m1}{\sqrt(3)} - exp(-b2 / 2)\frac{m2}{\sqrt(3)}
+PS = exp(-b1 / 2)\frac{m1}{\sqrt{3}} - exp(-b2 / 2)\frac{m2}{\sqrt{3}}
 $$
 
 
