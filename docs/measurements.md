@@ -26,7 +26,7 @@ $$
 The primary extent is the RMS radius of the unnormalized sliding-window mask orbit. Given its Euclidean distance matrix `D`,
 
 $$
-radius = sqrt(mean(D**2) / 2).
+radius = \sqrt{mean(D**2} / 2).
 $$
 
 ## Periodicity
@@ -34,7 +34,7 @@ $$
 The sliding-window cloud is centered over time within each window and normalized to the unit sphere. Let the two longest finite H1 classes have births and deaths `(b1, d1)` and `(b2, d2)`, ordered by persistence `mi = di - bi`. PRISM uses
 
 $$
-PS = exp(-b1 / 2) * m1 / sqrt(3) - exp(-b2 / 2) * m2 / sqrt(3).
+PS = exp(-b1 / 2)\frac{m1}{\sqrt{3}} - exp(-b2 / 2)\frac{m2}{\sqrt{3}}
 $$
 
 The second term is zero when a second finite class is absent. The first term rewards a dominant persistent loop; the second penalizes a competing loop of comparable persistence.
