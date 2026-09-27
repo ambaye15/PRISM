@@ -25,7 +25,7 @@ Install the controlled validation environment only when reproducing the syntheti
 python -m pip install -e ".[validation,dev]"
 ```
 
-DAM4SAM and its checkpoint remain external because they require their own CUDA environment. See [`docs/real_video_pipeline.md`](docs/real_video_pipeline.md).
+DAM4SAM and its checkpoint remain external because they require their own CUDA environment.
 
 ## Measurements
 
