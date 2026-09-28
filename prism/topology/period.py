@@ -11,7 +11,6 @@ def _spectral_peak(signal, fps, settings, *, nfft_min=2048):
         raise ImportError("SciPy is required for automatic period estimation") from error
 
     signal = np.asarray(signal, dtype=np.float64)
-    duration = len(signal) / fps
     nfft = max(nfft_min, 1 << int(np.ceil(np.log2(max(8 * len(signal), 2)))))
     frequencies, power = welch(
         signal,
@@ -23,7 +22,8 @@ def _spectral_peak(signal, fps, settings, *, nfft_min=2048):
         detrend="linear",
         scaling="density",
     )
-    minimum_frequency = max(1.0 / settings.max_period_sec, settings.min_cycles / duration)
+   
+    minimum_frequency = 1.0 / settings.max_period_sec
     maximum_frequency = min(
         1.0 / settings.min_period_sec,
         0.45 * fps,
@@ -46,9 +46,7 @@ def _spectral_peak(signal, fps, settings, *, nfft_min=2048):
             offset = float(np.clip(0.5 * (left - right) / denominator, -1.0, 1.0))
     spacing = float(frequencies[1] - frequencies[0])
     frequency = float(frequencies[peak] + offset * spacing)
-    # Integrate approximately one native Fourier bin on either side. Using
-    # only three bins would make the clarity score shrink artificially when
-    # zero-padding increases ``nfft``.
+   
     native_half_width = max(1, int(np.ceil(nfft / max(len(signal), 1))))
     lo = max(0, peak - native_half_width)
     hi = min(len(power), peak + native_half_width + 1)
@@ -148,8 +146,6 @@ def period_from_welch(scores, timestamps, settings):
     fps = 1.0 / typical_dt
     duration = float(timestamps[-1] - timestamps[0] + typical_dt)
 
-    # Welch assumes uniform sampling. Video timestamps normally satisfy this;
-    # interpolate only when their spacing differs materially from the median.
     if np.max(np.abs(np.diff(timestamps) - typical_dt)) > 0.05 * typical_dt:
         uniform_times = timestamps[0] + np.arange(len(timestamps)) * typical_dt
         scores = np.column_stack(
@@ -178,7 +174,7 @@ def period_from_welch(scores, timestamps, settings):
     component_power = np.asarray(component_power, dtype=np.float64)
     power = component_power.sum(axis=0)
 
-    minimum_frequency = max(1.0 / settings.max_period_sec, settings.min_cycles / duration)
+    minimum_frequency = 1.0 / settings.max_period_sec
     maximum_frequency = min(
         1.0 / settings.min_period_sec,
         settings.welch_nyquist_fraction * fps,
