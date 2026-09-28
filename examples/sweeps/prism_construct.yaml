@@ -1,0 +1,13 @@
+# Clean PRISM construct-validity sweep: 4 frequencies x 3 amplitudes x 3 seeds.
+base: examples/specs/arm_flapping.json
+duration_sec: 20
+name_template: "flap_f{drives[flap].frequency.value}_A{drives[flap].amplitude.tracks[1].value}_seed{seed}"
+grid:
+  drives[flap].frequency.value: [1.0, 2.0, 3.0, 4.0]
+  drives[flap].amplitude.tracks[1].value: [10, 25, 45]
+  drives[breathing].amplitude.value: [0.0]
+  nuisance.sway.enabled: [false]
+  nuisance.micro_motion.enabled: [false]
+  camera.shake.sigma_px: [0.0]
+seeds: [0, 1, 2]
+

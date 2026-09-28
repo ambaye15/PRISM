@@ -1,0 +1,19 @@
+# Noise ladder on body rocking: keypoint jitter x dropout x camera shake.
+#
+# Compare cells within the same seed to hold world motion fixed. The two seeds
+# produce different nuisance realizations. Keypoint noise affects noisy sidecars;
+# camera shake is also visible in the default clean video.
+#
+# From the standalone project root:
+#   python -m skeleton_lab sweep examples/sweeps/noise_ladder.yaml \
+#       --out output/noise_ladder
+#
+# 3 x 3 x 3 cells x 2 seeds = 54 clips of 20 s.
+base: examples/specs/body_rocking.json
+duration_sec: 20
+name_template: "rock_jitter{measurement.jitter.sigma_px}_drop{measurement.dropout.p_enter}_shake{camera.shake.sigma_px}_seed{seed}"
+grid:
+  measurement.jitter.sigma_px: [0, 6, 18]
+  measurement.dropout.p_enter: [0.0, 0.02, 0.08]
+  camera.shake.sigma_px: [0, 8, 24]
+seeds: [0, 1]

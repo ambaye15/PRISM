@@ -1,0 +1,21 @@
+# Small construct-validity grid for the real SAM2 + DINO video pipeline.
+#
+# Body rocking is deliberate: the corrected signed subject-axis frequency
+# measures whole-body rhythm and is not valid for in-place arm articulation.
+# Camera shake is render-visible noise; keypoint jitter is not visible in the
+# default clean MP4 and therefore cannot stress the video pipeline.
+#
+# The 45-degree view makes forward/back rocking a signed image-plane motion.
+# A frontal orthographic view collapses the sign and exposes only a doubled
+# silhouette harmonic, which is not a valid test of the subject-axis channel.
+#
+# 2 frequencies x 2 angular amplitudes x 2 camera-noise levels x 2 seeds = 16 clips.
+base: examples/specs/body_rocking.json
+duration_sec: 12
+name_template: "rock45_f{shared_tracks[rock_f].value}_A{drives[rock].amplitude.tracks[1].value}_shake{camera.shake.sigma_px}_seed{seed}"
+grid:
+  shared_tracks[rock_f].value: [0.75, 2.0]
+  drives[rock].amplitude.tracks[1].value: [6, 24]
+  camera.shake.sigma_px: [0, 12]
+  camera.azimuth_deg: [45]
+seeds: [7, 19]

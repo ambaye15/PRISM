@@ -1,0 +1,245 @@
+{
+  "version": "1",
+  "name": "idle",
+  "description": "Sitting, breathing and fidgeting only: the baseline negative.",
+  "seed": 0,
+  "duration_sec": 12.0,
+  "fps": 30.0,
+  "substeps": 8,
+  "body": {
+    "posture": "sitting",
+    "stance": "relaxed",
+    "body_scale": 1.0,
+    "lengths": {}
+  },
+  "pose_offsets": {},
+  "shared_tracks": {},
+  "drives": [
+    {
+      "kind": "oscillator",
+      "id": "breathing",
+      "amplitude": {
+        "type": "const",
+        "value": 1.0
+      },
+      "frequency": {
+        "type": "const",
+        "value": 0.3
+      },
+      "onset_rate": 2.0,
+      "sigma_r": {
+        "type": "const",
+        "value": 0.0
+      },
+      "sigma_phi": {
+        "type": "const",
+        "value": 0.0
+      },
+      "waveform": {
+        "shape": "sine",
+        "skew": 0.0,
+        "contact": 1.0
+      },
+      "phi0_deg": 0.0,
+      "radial_law": "linear",
+      "coupling": []
+    }
+  ],
+  "bindings": [
+    {
+      "drive": "breathing",
+      "target": "spine.pitch",
+      "gain": 1.0,
+      "phase_offset_deg": 0.0,
+      "rest_offset": {
+        "type": "const",
+        "value": 0.0
+      }
+    }
+  ],
+  "nuisance": {
+    "sway": {
+      "enabled": true,
+      "sigma_m": 0.01,
+      "sigma_deg": 1.0,
+      "tau_sec": 2.0
+    },
+    "micro_motion": {
+      "enabled": true,
+      "sigma_deg": 0.6,
+      "tau_sec": 1.5,
+      "tremor_deg": 0.15,
+      "tremor_tau_sec": 0.12,
+      "sigma_m": 0.002,
+      "tremor_m": 0.0005
+    },
+    "fidget": {
+      "enabled": true,
+      "events_per_min": 6.0,
+      "amp_min_deg": 5.0,
+      "amp_max_deg": 15.0,
+      "dur_min_sec": 0.4,
+      "dur_max_sec": 1.5,
+      "dofs": [
+        "elbow_l.flexion",
+        "elbow_r.flexion",
+        "neck.yaw",
+        "shoulder_l.flexion",
+        "shoulder_r.flexion",
+        "wrist_l.deviation"
+      ]
+    }
+  },
+  "measurement": {
+    "jitter": {
+      "sigma_px": {
+        "type": "const",
+        "value": 0.0
+      },
+      "rho": 0.6
+    },
+    "dropout": {
+      "p_enter": 0.0,
+      "mean_len_frames": 6.0,
+      "mode": "hold_last"
+    },
+    "swap": {
+      "p_swap": 0.0,
+      "groups": [
+        "arms",
+        "legs"
+      ]
+    },
+    "quantize_px": false,
+    "visibility_mean": 0.95,
+    "visibility_sigma": 0.03
+  },
+  "camera": {
+    "azimuth_deg": 0.0,
+    "elevation_deg": 8.0,
+    "px_per_m": 420.0,
+    "center_px": null,
+    "perspective": 0.0,
+    "shake": {
+      "sigma_px": 0.0,
+      "tau_sec": 0.3
+    },
+    "zoom": {
+      "type": "const",
+      "value": 1.0
+    },
+    "pan_dx": {
+      "type": "const",
+      "value": 0.0
+    },
+    "pan_dy": {
+      "type": "const",
+      "value": 0.0
+    }
+  },
+  "render": {
+    "width": 1280,
+    "height": 720,
+    "style": "capsule",
+    "from": "clean",
+    "colors": {
+      "skin": [
+        150,
+        175,
+        205
+      ],
+      "outline": [
+        40,
+        45,
+        55
+      ],
+      "left": [
+        60,
+        120,
+        240
+      ],
+      "right": [
+        220,
+        160,
+        60
+      ],
+      "center": [
+        200,
+        200,
+        200
+      ]
+    },
+    "line_px": 6,
+    "joint_px": 7,
+    "limb_width_m": {
+      "torso": 0.22,
+      "upper_arm": 0.07,
+      "forearm": 0.06,
+      "hand": 0.05,
+      "thigh": 0.1,
+      "shank": 0.08,
+      "neck": 0.06,
+      "foot": 0.07,
+      "pelvis": 0.1,
+      "clavicle": 0.07,
+      "spine": 0.2
+    },
+    "background": {
+      "kind": "gradient",
+      "color": [
+        120,
+        120,
+        120
+      ],
+      "color2": [
+        60,
+        60,
+        60
+      ],
+      "noise_scale_px": 24.0,
+      "noise_strength": 40.0,
+      "image_path": null
+    },
+    "ground": {
+      "enabled": true,
+      "y_m": null,
+      "extent_m": 3.0,
+      "grid_spacing_m": 0.25,
+      "color": [
+        70,
+        74,
+        82
+      ],
+      "line_color": [
+        96,
+        102,
+        112
+      ],
+      "shadow": true,
+      "shadow_strength": 0.35
+    },
+    "sensor": {
+      "sigma_gray": {
+        "type": "const",
+        "value": 0.0
+      },
+      "flicker_sigma": 0.0,
+      "flicker_tau_sec": 1.0
+    },
+    "distractor": null,
+    "second_skeleton": null,
+    "overlay_truth": false
+  },
+  "export": {
+    "codec": "h264",
+    "crf": 18,
+    "include_frames_png": false,
+    "layouts": [
+      "coco17",
+      "mediapipe33",
+      "world3d"
+    ],
+    "noisy": true,
+    "clean": true
+  }
+}

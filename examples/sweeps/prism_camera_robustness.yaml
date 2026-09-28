@@ -1,0 +1,12 @@
+# Constant behavior under viewpoint, camera-shake, and image-scale changes.
+base: examples/specs/arm_flapping.json
+duration_sec: 20
+name_template: "flap_az{camera.azimuth_deg}_shake{camera.shake.sigma_px}_scale{camera.px_per_m}_seed{seed}"
+grid:
+  drives[flap].frequency.value: [2.5]
+  drives[flap].amplitude.tracks[1].value: [25]
+  camera.azimuth_deg: [0, 45, 90]
+  camera.shake.sigma_px: [0, 8, 16]
+  camera.px_per_m: [220, 275, 330]
+seeds: [0, 1]
+
