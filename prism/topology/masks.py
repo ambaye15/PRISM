@@ -15,7 +15,7 @@ class TopologySettings:
     d = field(23)
     n_points = field(300)
     period_sec = field(None)
-    min_period_sec = field(0.4)
+    min_period_sec = field(0.2)
     max_period_sec = field(5.0)
     min_cycles = field(2.5)
     spectral_concentration_min = field(0.15)
