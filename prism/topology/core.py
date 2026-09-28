@@ -149,18 +149,51 @@ def analyze_masks(masks, timestamps, *, valid_mask = None, settings = None):
         d=settings.d,
         n_points=settings.n_points,
     )
+
     density = knn_density_selection(
-        cloud["scale_distance"], k=settings.density_k, retain_fraction=settings.density_retain_fraction
+        cloud["scale_distance"],
+        k=settings.density_k,
+        retain_fraction=settings.density_retain_fraction,
     )
-    keep = np.flatnonzero(density["keep_mask"])
-    starts = cloud["start_times_sec"][keep]
-    scale = cloud["scale_distance"][np.ix_(keep, keep)]
-    normalized = cloud["normalized_distance"][np.ix_(keep, keep)]
+
+    # Density selection is defined on the complete, unnormalized scale cloud.
+    scale_keep = np.flatnonzero(density["keep_mask"])
+    starts = cloud["start_times_sec"][scale_keep]
+    scale = cloud["scale_distance"][np.ix_(scale_keep, scale_keep)]
+
+    # Zero-variation windows are absent from the sphere-normalized cloud.
+    # Convert the original density mask into indices for this reduced cloud.
+    sphere_valid = cloud["sphere_valid_mask"]
+    normalized_density_keep = density["keep_mask"][sphere_valid]
+    normalized_keep = np.flatnonzero(normalized_density_keep)
+
+    if len(normalized_keep) < 8:
+        raise ValueError(
+            "fewer than 8 sphere-normalized windows remain after "
+            "density selection"
+        )
+
+    normalized_starts = cloud["normalized_start_times_sec"][
+        normalized_keep
+    ]
+    normalized = cloud["normalized_distance"][
+        np.ix_(normalized_keep, normalized_keep)
+    ]
+
     scale_pca, scale_ratio = pca_from_distances(scale)
-    normalized_pca, normalized_ratio = pca_from_distances(normalized)
-    scale_h1, scale_diagram = persistence_summary(scale, settings.compute_h1, normalized_cloud=False)
+    normalized_pca, normalized_ratio = pca_from_distances(
+        normalized
+    )
+
+    scale_h1, scale_diagram = persistence_summary(
+        scale,
+        settings.compute_h1,
+        normalized_cloud=False,
+    )
     normalized_h1, normalized_diagram = persistence_summary(
-        normalized, settings.compute_h1, normalized_cloud=True
+        normalized,
+        settings.compute_h1,
+        normalized_cloud=True,
     )
 
     summary = {
@@ -174,8 +207,13 @@ def analyze_masks(masks, timestamps, *, valid_mask = None, settings = None):
             "width": int(masks.shape[2]),
         },
         "period": {
-            k: v for k, v in period.items()
-            if k not in {"frequency_hz_grid", "welch_power", "welch_component_power"}
+            k: v
+            for k, v in period.items()
+            if k not in {
+                "frequency_hz_grid",
+                "welch_power",
+                "welch_component_power",
+            }
         },
         "embedding": {
             "d": settings.d,
@@ -183,11 +221,35 @@ def analyze_masks(masks, timestamps, *, valid_mask = None, settings = None):
             "tau_sec": cloud["tau_sec"],
             "window_span_sec": cloud["window_span_sec"],
             "n_points_before_filter": settings.n_points,
-            "n_points_retained": len(keep),
-            "centering": "pixelwise temporal mean across d+1 masks",
-            "normalization": "L2 sphere normalization after temporal image centering",
+
+            # Keep the original key for backward compatibility.
+            "n_points_retained": len(scale_keep),
+
+            "n_scale_points_retained": len(scale_keep),
+            "n_normalized_points_before_density": int(
+                cloud["n_sphere_points"]
+            ),
+            "n_normalized_points_retained": len(normalized_keep),
+            "sphere_valid_fraction": float(
+                cloud["sphere_valid_fraction"]
+            ),
+            "centering": (
+                "pixelwise temporal mean across d+1 masks"
+            ),
+            "normalization": (
+                "L2 sphere normalization after temporal image "
+                "centering; zero-variation windows excluded"
+            ),
         },
-        "density": {k: v for k, v in density.items() if k not in {"keep_mask", "density", "knn_radius"}},
+        "density": {
+            k: v
+            for k, v in density.items()
+            if k not in {
+                "keep_mask",
+                "density",
+                "knn_radius",
+            }
+        },
         "scale": {
             **scale_h1,
             "pc_variance_ratio": scale_ratio.tolist(),
@@ -195,18 +257,47 @@ def analyze_masks(masks, timestamps, *, valid_mask = None, settings = None):
         "normalized": {
             **normalized_h1,
             "pc_variance_ratio": normalized_ratio.tolist(),
-            "cycle_return_distance_median": cycle_return_distance(
-                normalized, starts, float(period["period_sec"])
+            "cycle_return_distance_median": (
+                cycle_return_distance(
+                    normalized,
+                    normalized_starts,
+                    float(period["period_sec"]),
+                )
             ),
-            "pre_sphere_norm_min": float(cloud["pre_sphere_norm"][keep].min()),
-            "pre_sphere_norm_median": float(np.median(cloud["pre_sphere_norm"][keep])),
-            "pre_sphere_norm_max": float(cloud["pre_sphere_norm"][keep].max()),
+            "pre_sphere_norm_min": float(
+                cloud["pre_sphere_norm"][
+                    normalized_keep
+                ].min()
+            ),
+            "pre_sphere_norm_median": float(
+                np.median(
+                    cloud["pre_sphere_norm"][
+                        normalized_keep
+                    ]
+                )
+            ),
+            "pre_sphere_norm_max": float(
+                cloud["pre_sphere_norm"][
+                    normalized_keep
+                ].max()
+            ),
         },
     }
+
     return {
         "summary": summary,
+
+        # Backward-compatible scale-cloud timestamps.
         "start_times_sec": starts,
         "start_times_sec_all": cloud["start_times_sec"],
+
+        # Explicit normalized-cloud timestamps and validity map.
+        "normalized_start_times_sec": normalized_starts,
+        "normalized_start_times_sec_all": cloud[
+            "normalized_start_times_sec"
+        ],
+        "sphere_valid_mask": sphere_valid,
+
         "density_keep_mask": density["keep_mask"],
         "density": density["density"],
         "scale_distance": scale,
@@ -215,8 +306,12 @@ def analyze_masks(masks, timestamps, *, valid_mask = None, settings = None):
         "normalized_pca": normalized_pca,
         "scale_diagram": scale_diagram,
         "normalized_diagram": normalized_diagram,
-        "frequency_hz_grid": period.get("frequency_hz_grid"),
+        "frequency_hz_grid": period.get(
+            "frequency_hz_grid"
+        ),
         "frequency_power": period.get("welch_power"),
-        "welch_component_power": period.get("welch_component_power"),
+        "welch_component_power": period.get(
+            "welch_component_power"
+        ),
         "period_pca_scores": period_signals,
     }

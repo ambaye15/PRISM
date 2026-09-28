@@ -50,25 +50,48 @@ def sliding_window_distances(masks, timestamps, *, period_sec, d = 23, n_points 
     centered_dot = raw_dot - temporal_mean_dot
     centered_dot = 0.5 * (centered_dot + centered_dot.T)
     centered_norms = np.maximum(np.diag(centered_dot), 0.0)
-    if np.any(centered_norms <= 1e-12):
+
+    # A window with no temporal mask variation is the zero vector after
+    # temporal centering and therefore has no sphere normalization. Following
+    # the mathematical definition, exclude only those windows from the
+    # normalized cloud rather than rejecting the complete sequence.
+    sphere_valid = np.isfinite(centered_norms) & (centered_norms > 1e-12)
+
+    if sphere_valid.sum() < 8:
         raise ValueError(
-            "at least one window has zero temporal mask variation and cannot be sphere-normalized"
+            "fewer than 8 nonconstant sliding-window points remain "
+            "for sphere normalization"
         )
-    denominator = np.sqrt(np.outer(centered_norms, centered_norms))
-    cosine = np.clip(centered_dot / denominator, -1.0, 1.0)
-    normalized = np.sqrt(np.maximum(2.0 - 2.0 * cosine, 0.0))
+
+    normalized_dot = centered_dot[np.ix_(sphere_valid, sphere_valid)]
+    normalized_norms = centered_norms[sphere_valid]
+
+    denominator = np.sqrt(
+        np.outer(normalized_norms, normalized_norms)
+    )
+    cosine = np.clip(normalized_dot / denominator, -1.0, 1.0)
+    normalized = np.sqrt(
+        np.maximum(2.0 - 2.0 * cosine, 0.0)
+    )
+
     scale[scale < 1e-7] = 0.0
     normalized[normalized < 1e-7] = 0.0
     np.fill_diagonal(scale, 0.0)
     np.fill_diagonal(normalized, 0.0)
+
     return {
         "start_times_sec": starts,
+        "normalized_start_times_sec": starts[sphere_valid],
         "tau_sec": tau,
         "window_span_sec": span,
         "scale_distance": scale,
         "normalized_distance": normalized,
-        "pre_sphere_norm": np.sqrt(centered_norms),
+        "pre_sphere_norm": np.sqrt(normalized_norms),
+        "sphere_valid_mask": sphere_valid,
+        "n_sphere_points": int(sphere_valid.sum()),
+        "sphere_valid_fraction": float(sphere_valid.mean()),
     }
+
 
 def knn_density_selection(distance, *, k, retain_fraction):
     """Optional pre-normalization kNN density selection."""
