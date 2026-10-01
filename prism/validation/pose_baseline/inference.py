@@ -101,7 +101,7 @@ def read_bout_inputs(episode_dir, source=None, videos_root=None):
             )
         start = source.get("analysis_start_frame", 0)
         video_start_frame = int(start) if np.isfinite(float(start)) else 0
-    camera_transforms, camera_translations = read_camera_corrections(
+    camera_transforms, camera_translations, flow_pair_valid = read_camera_corrections(
         episode_dir / "optical_flow_frames.csv", len(masks) - 1
     )
     return {
@@ -114,6 +114,7 @@ def read_bout_inputs(episode_dir, source=None, videos_root=None):
         "summary": summary,
         "camera_transforms": camera_transforms,
         "camera_translations": camera_translations,
+        "flow_pair_valid": flow_pair_valid,
     }
 
 
@@ -131,8 +132,10 @@ def read_camera_corrections(path, pair_count):
     """Read the exact corrections used by the frozen optical-flow analysis."""
     transforms = [None] * pair_count
     translations = [None] * pair_count
+    flow_pair_valid = None
     if not path.is_file():
-        return transforms, translations
+        return transforms, translations, flow_pair_valid
+    flow_pair_valid = np.zeros(pair_count, dtype=bool)
     with path.open(newline="", encoding="utf-8") as stream:
         for row in csv.DictReader(stream):
             try:
@@ -141,6 +144,12 @@ def read_camera_corrections(path, pair_count):
                 continue
             if index < 0 or index >= pair_count:
                 continue
+            pair_valid = str(row.get("flow_pair_valid", "")).strip().lower()
+            core_pair = str(row.get("is_core_pair", "true")).strip().lower()
+            flow_pair_valid[index] = (
+                pair_valid in {"1", "true", "yes"}
+                and core_pair not in {"0", "false", "no"}
+            )
             encoded = row.get("flow_camera_transform")
             if encoded and encoded not in {"None", "nan"}:
                 try:
@@ -154,7 +163,7 @@ def read_camera_corrections(path, pair_count):
             dy = number_or_none(row.get("flow_camera_translation_y_pixels_per_frame"))
             if dx is not None and dy is not None:
                 translations[index] = np.asarray([dx, dy], dtype=np.float64)
-    return transforms, translations
+    return transforms, translations, flow_pair_valid
 
 
 def infer_bout_pose(inputs, estimator, padding_fraction=0.15):

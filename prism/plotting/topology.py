@@ -78,8 +78,10 @@ def _plot_pca(axis, coordinates, ratios, times, title, retained_positions=None):
     )
     pc1 = 100 * ratios[0] if ratios else 0.0
     pc2 = 100 * ratios[1] if len(ratios) > 1 else 0.0
-    axis.set(title=title, xlabel=f"PC1 ({pc1:.1f}%)", ylabel=f"PC2 ({pc2:.1f}%)")
     axis.set_aspect("equal", adjustable="datalim")
+    axis.set_xticks([])
+    axis.set_yticks([])
+
     axis.grid(alpha=0.2)
     axis.legend(frameon=False)
     return scatter
@@ -88,56 +90,33 @@ def _plot_pca(axis, coordinates, ratios, times, title, retained_positions=None):
 def plot_topology_diagnostic(result, summary, output, title):
     import matplotlib.pyplot as plt
 
-    figure, axes = plt.subplots(2, 3, figsize=(15, 9))
+    figure, axes = plt.subplots(1, 3, figsize=(15, 4))
     starts = result["start_times_sec"]
     retained = np.flatnonzero(result["density_keep_mask"])
     scale = summary["scale"]
     normalized = summary["normalized"]
 
-    first = _plot_pca(
-        axes[0, 0],
-        result["scale_pca"],
-        scale["pc_variance_ratio"],
-        starts,
-        "Scale-preserving PCA",
-        retained,
-    )
-    figure.colorbar(first, ax=axes[0, 0], label="Window start (s)")
-    _plot_diagram(
-        axes[0, 1],
-        result["scale_diagram"],
-        f"Scale H1 (relative={scale.get('h1_relative_persistence', 0):.3f})",
-    )
-    axes[0, 2].imshow(result["scale_distance"], cmap="magma", origin="lower")
-    axes[0, 2].set(title="Scale-preserving distance", xlabel="Window", ylabel="Window")
-
     second = _plot_pca(
-        axes[1, 0],
+        axes[0],
         result["normalized_pca"],
         normalized["pc_variance_ratio"],
         starts,
         "Centered sphere PCA",
         retained,
     )
-    figure.colorbar(second, ax=axes[1, 0], label="Window start (s)")
+    figure.colorbar(second, ax=axes[0], label="Window start (s)")
     _plot_diagram(
-        axes[1, 1],
+        axes[1],
         result["normalized_diagram"],
         f"Normalized H1 (PS={normalized.get('periodicity_score', 0):.3f})",
     )
-    axes[1, 2].imshow(
+    axes[2].imshow(
         result["normalized_distance"], cmap="magma", origin="lower", vmin=0, vmax=2
     )
-    axes[1, 2].set(title="Sphere-normalized distance", xlabel="Window", ylabel="Window")
+    axes[2].set(title="Sphere-normalized distance", xlabel="Window", ylabel="Window")
 
-    period = summary["period"]
-    embedding = summary["embedding"]
-    figure.suptitle(
-        f"{title}\nperiod={period['period_sec']:.4g}s; d={embedding['d']}; "
-        f"tau={embedding['tau_sec']:.4g}s; "
-        f"points={embedding['n_points_retained']}/{embedding['n_points_before_filter']}",
-        fontsize=12,
-    )
+    figure.suptitle(f"{title}",fontsize=12)
+      
     figure.tight_layout()
     path = Path(output) / "topology_diagnostic.png"
     figure.savefig(path, dpi=180, bbox_inches="tight")

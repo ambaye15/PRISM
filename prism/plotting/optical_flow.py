@@ -12,9 +12,9 @@ def plot_flow_trace(path, rows):
     time = np.asarray([row["timestamp_sec"] for row in valid], dtype=float)
     figure, axis = plt.subplots(figsize=(10, 4.5))
     lines = (
-        ("flow_pixel_median_body_heights_per_sec", "pixel median", "#356aa0"),
-        ("flow_pixel_p75_body_heights_per_sec", "pixel 75th percentile", "#e07a3f"),
-        ("flow_pixel_p90_body_heights_per_sec", "pixel 90th percentile", "#6a9f58"),
+        #("flow_pixel_median_body_heights_per_sec", "pixel median", "#356aa0"),
+        #("flow_pixel_p75_body_heights_per_sec", "pixel 75th percentile", "#e07a3f"),
+        #("flow_pixel_p90_body_heights_per_sec", "pixel 90th percentile", "#6a9f58"),
         (
             "flow_pixel_p75_torso_corrected_body_heights_per_sec",
             "torso-corrected p75",

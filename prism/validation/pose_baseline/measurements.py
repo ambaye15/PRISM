@@ -70,6 +70,8 @@ def measure_pose_bout(
     torso_indices=COCO_TORSO,
     camera_transforms=None,
     camera_translations=None,
+    pair_valid=None,
+    timestamps=None,
 ):
     """Compute total, torso-translation, and torso-relative pose motion.
 
@@ -94,6 +96,14 @@ def measure_pose_bout(
         mask_valid = masks.reshape(len(masks), -1).any(axis=1)
     core_mask = np.asarray(core_mask, dtype=bool)
     mask_valid = np.asarray(mask_valid, dtype=bool)
+    if pair_valid is not None:
+        pair_valid = np.asarray(pair_valid, dtype=bool)
+        if len(pair_valid) != len(xy) - 1:
+            raise ValueError("pair_valid must contain one value per adjacent frame pair")
+    if timestamps is not None:
+        timestamps = np.asarray(timestamps, dtype=np.float64)
+        if len(timestamps) != len(xy) or np.any(np.diff(timestamps) <= 0):
+            raise ValueError("timestamps must be strictly increasing and match pose frames")
 
     original_observed = (
         np.isfinite(xy).all(axis=2)
@@ -114,6 +124,7 @@ def measure_pose_bout(
     articulated_median = []
     articulated_p75 = []
     expected_pairs = 0
+    candidate_pairs = 0
     torso_valid_pairs = 0
 
     torso_indices = np.asarray(torso_indices, dtype=int)
@@ -127,9 +138,12 @@ def measure_pose_bout(
     for index in range(len(xy) - 1):
         if not (core_mask[index] and core_mask[index + 1]):
             continue
-        expected_pairs += 1
+        candidate_pairs += 1
         if not (mask_valid[index] and mask_valid[index + 1]):
             continue
+        if pair_valid is not None and not pair_valid[index]:
+            continue
+        expected_pairs += 1
         scale = 0.5 * (heights[index] + heights[index + 1])
         if not np.isfinite(scale) or scale <= 1:
             continue
@@ -151,7 +165,12 @@ def measure_pose_bout(
             if translation.shape == (2,) and np.isfinite(translation).all():
                 displacement = displacement - translation
                 camera_corrected_pairs += 1
-        multiplier = float(fps) / float(scale)
+        delta_time = (
+            float(timestamps[index + 1] - timestamps[index])
+            if timestamps is not None
+            else 1.0 / float(fps)
+        )
+        multiplier = 1.0 / (float(scale) * delta_time)
         speed = np.linalg.norm(displacement[keep], axis=1) * multiplier
         total_median.append(float(np.median(speed)))
         total_p75.append(float(np.percentile(speed, 75)))
@@ -178,6 +197,8 @@ def measure_pose_bout(
         "pose_total_motion_p75_mask_heights_per_sec": float(np.median(total_p75)),
         "pose_valid_pair_count": len(total_median),
         "pose_expected_pair_count": expected_pairs,
+        "pose_candidate_core_pair_count": candidate_pairs,
+        "pose_shared_flow_pair_count": expected_pairs if pair_valid is not None else np.nan,
         "pose_valid_pair_fraction": len(total_median) / expected_pairs,
         "pose_interpolated_landmark_fraction": float(interpolated.mean()),
         "pose_observed_landmark_fraction": float(original_observed.mean()),

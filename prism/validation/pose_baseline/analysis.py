@@ -6,7 +6,7 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
-from prism.validation.skeleton.analysis import agreement_rows
+from prism.validation.agreement import agreement_rows
 
 from .inference import UltralyticsPose, infer_bout_pose, read_bout_inputs
 from .measurements import measure_pose_bout
@@ -101,6 +101,8 @@ def run_pose_baseline(
                 maximum_interpolation_gap=maximum_interpolation_gap,
                 camera_transforms=inputs["camera_transforms"],
                 camera_translations=inputs["camera_translations"],
+                pair_valid=inputs["flow_pair_valid"],
+                timestamps=inputs["timestamps_sec"],
             ))
             row["pose_mask_box_iou_median"] = (
                 float(np.nanmedian(overlap)) if np.isfinite(overlap).any() else np.nan
@@ -185,7 +187,17 @@ def run_pose_baseline(
         "n_pose_articulated_available": int(
             merged.get("pose_articulated_motion_p75_mask_heights_per_sec", pd.Series(dtype=float)).notna().sum()
         ),
+        "n_pose_torso_available": int(
+            merged.get("pose_torso_translation_speed_mask_heights_per_sec", pd.Series(dtype=float)).notna().sum()
+        ),
         "n_meeting_valid_pair_threshold": int(valid.sum()),
+        "pose_mask_box_iou_median": float(
+            merged["pose_mask_box_iou_median"].median()
+        ) if "pose_mask_box_iou_median" in merged else np.nan,
+        "total_flow_column": total_flow,
+        "torso_corrected_flow_column": residual_flow,
+        "torso_translation_flow_column": torso_flow,
+        "frame_pair_alignment": "intersection_with_frozen_optical_flow_pairs",
         "minimum_valid_pair_fraction": minimum_valid_pair_fraction,
         "confidence_threshold": confidence_threshold,
         "maximum_interpolation_gap": maximum_interpolation_gap,
@@ -206,6 +218,12 @@ def run_pose_baseline(
         "minimum_valid_pair_fraction": minimum_valid_pair_fraction,
         "bootstrap_replicates": bootstrap_replicates,
         "seed": seed,
+        "comparison_columns": {
+            "total_flow": total_flow,
+            "torso_corrected_flow": residual_flow,
+            "torso_translation_flow": torso_flow,
+        },
+        "frame_pair_alignment": "intersection_with_frozen_optical_flow_pairs",
     }
     (output_root / "pose_baseline_settings.json").write_text(
         json.dumps(settings, indent=2, sort_keys=True) + "\n", encoding="utf-8"
