@@ -1,12 +1,11 @@
 # PRISM
 
-PRISM measures movement intensity, spatial extent, frequency, periodic organization, and duration from tracked-person video masks.
+PRISM decomposes tracked-person video mask movement into intensity, spatial extent, frequency, periodic organization, and duration.
 
 The repository has two separate layers:
 
 1. `prism/` is the production analysis used on real SMM videos.
-2. `prism/validation/skeleton_lab/` runs controlled synthetic validation with
-   Skeleton Lab, but calls the same production measurement functions.
+2. `prism/validation/skeleton_lab/` runs controlled synthetic validation with Skeleton Lab, but calls the same production measurement functions.
 
 Skeleton Lab is a validation dependency.
 
@@ -45,7 +44,6 @@ $$
 PS = exp(-b1 / 2)\frac{m1}{\sqrt{3}} - exp(-b2 / 2)\frac{m2}{\sqrt{3}}
 $$
 
-
 ## Real-video workflow
 
 ```bash
@@ -53,16 +51,36 @@ $$
 python -m prism.run_dam4sam_batch --help
 
 # 2. Restrict the full-video tracks to annotated bouts
-python -m prism.prepare_dam4sam_bouts --help
+python -m prism.prepare_dam4sam_bouts \
+  --tracks-root "results" \
+  --episodes-root annotated_runs/episode_runs \
+  --output-root prism_bouts
+
 
 # 3. Torso-centered masked optical-flow intensity
-prism-flow --help
+prism-flow \
+  --runs-root prism_bouts \
+  --episodes-root annotated_runs/episode_runs \
+  --camera-correction ransac_similarity \
+  --region-mode flow_consistent \
+  --save-videos
+  --force
 
 # 4. Lagged-SSM frequency, orbit-radius extent, and SW1PerS periodicity
-prism-topology --help
+prism-topology \
+  --runs-root prism_bouts \
+  --frequency-method lagged_ssm \
+  --d 23 \
+  --n-points 300 \
+  --min-period-sec 0.40 \
+  --max-period-sec 5.0 \
+  --min-cycles 2.5 \
+  --force
 
 # 5. Canonical bout-level table
-prism-assemble --help
+prism-assemble \
+  --runs-root prism_bouts \
+  --output prism_bouts/analysis.csv
 ```
 
 ## Skeleton Lab validation
@@ -85,15 +103,10 @@ python scripts/summarize_skeleton_lab_benchmark.py \
 
 ## Multiview 3D validation
 
-The multiview benchmark is included under `prism/validation/multiview/`. It
-compares exact Skeleton Lab world trajectories with calibrated four-camera 3D
-reconstruction, an informative clear view, random views, and an unfavorable
-partially occluded view. It is a synthetic proof of principle, not a claim
-about uncalibrated clinical multiview video.
+The multiview benchmark is included under `prism/validation/multiview/`. It compares exact Skeleton Lab world trajectories with calibrated four-camera 3D
+reconstruction, an informative clear view, random views, and an unfavorable partially occluded view. 
 
-Export trajectories from the same Skeleton Lab bundles used above. Current
-bundles are read directly; older bundles without a saved world trajectory are
-deterministically regenerated from their saved `spec.json`.
+Export trajectories from the same Skeleton Lab bundles used above. Current bundles are read directly; older bundles without a saved world trajectory are deterministically regenerated from their saved `spec.json`.
 
 ```bash
 python scripts/export_skeleton_lab_3d.py \
@@ -108,39 +121,20 @@ python scripts/run_3d_noninferiority.py \
   --seed 20260930
 ```
 
-The lower-level reconstruction benchmark and construct/regularity experiments
-are also available through `scripts/run_multiview_3d_benchmark.py`,
-`scripts/run_multiview_construct_recovery.py`, and
-`scripts/run_multiview_regularity_recovery.py`.
-
 ## Mask-aligned pose agreement
 
-Pose is inferred only inside crops derived from the frozen DAM4SAM masks. Pose
-motion is evaluated on the intersection of pose-valid pairs and the exact
-frame pairs retained by the frozen optical-flow analysis. Both modalities use
-the same mask-height and frame-time normalization. The three prespecified
-comparisons are total motion versus total flow, articulated pose motion versus
-torso-corrected flow, and pose torso translation versus flow torso translation.
+Pose is inferred only inside crops derived from the frozen DAM4SAM masks. Pose motion is evaluated on the intersection of pose-valid pairs and the exact frame pairs retained by the frozen optical-flow analysis. Both modalities use the same mask-height and frame-time normalization. The three prespecified comparisons are total motion versus total flow, articulated pose motion versus torso-corrected flow, and pose torso translation versus flow torso translation.
 
 ```bash
 python scripts/run_mask_aligned_pose_baseline.py \
-  --features prism_dam4sam_bouts/prism_bout_features_analysis_ready.csv \
-  --runs-root prism_dam4sam_bouts \
+  --features prism_bouts/analysis.csv \
+  --runs-root prism_bouts \
   --output-root prism_pose_validation \
   --bootstrap-replicates 2000 \
   --seed 20260930
 ```
 
-The output `pose_agreement_correlations.csv` contains pooled Spearman,
-behavior-specific Spearman, and within-participant/behavior rank associations
-with participant-clustered percentile confidence intervals. The settings file
-records the exact flow columns used in each comparison.
-
-If `pose_tracks/` already contains the cached inference, this command reuses
-those tracks by default. It therefore refreshes the corrected, exactly aligned
-measurements without rerunning the pose network. See
-`docs/pose_agreement_verification.md` for the audit of the previously reported
-results.
+The output `pose_agreement_correlations.csv` contains pooled Spearman, behavior-specific Spearman, and within-participant/behavior rank associations with participant-clustered percentile confidence intervals. The settings file records the exact flow columns used in each comparison.
 
 ## Tests
 
