@@ -1,10 +1,22 @@
 # PRISM
 
-PRISM decomposes tracked-person video mask movement into intensity, spatial extent, frequency, periodic organization, and duration.
+<p align="center">
+  <img src="docs/assets/logo.png" width="440" alt="PRISM logo">
+</p>
+
+<h1 align="center">PRISM</h1>
 
 <p align="center">
-  <img src="docs/assets/logo.png" width="1000">
+  Interpretable measurement of movements from tracked-person video masks
 </p>
+
+PRISM decomposes tracked-person motion into five complementary coordinates:
+
+- **intensity** — magnitude of motion relative to the torso;
+- **extent** — spatial scale of the mask trajectory;
+- **frequency** — cycles per second;
+- **periodicity** — organization around a dominant recurrent cycle;
+- **duration** — length of the annotated movement bout.
 
 The repository has two separate layers:
 
