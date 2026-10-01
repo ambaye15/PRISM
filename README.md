@@ -12,10 +12,10 @@
 
 PRISM decomposes tracked-person motion into five complementary coordinates:
 
-- **intensity** — magnitude of motion relative to the torso;
+- **intensity** — magnitude of motion;
 - **extent** — spatial scale of the mask trajectory;
 - **frequency** — cycles per second;
-- **periodicity** — organization around a dominant recurrent cycle;
+- **periodicity** — strength of repetition;
 - **duration** — length of the annotated movement bout.
 
 The repository has two separate layers:
