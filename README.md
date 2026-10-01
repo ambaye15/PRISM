@@ -83,6 +83,65 @@ python scripts/summarize_skeleton_lab_benchmark.py \
   --out output/prism_benchmark/summary
 ```
 
+## Multiview 3D validation
+
+The multiview benchmark is included under `prism/validation/multiview/`. It
+compares exact Skeleton Lab world trajectories with calibrated four-camera 3D
+reconstruction, an informative clear view, random views, and an unfavorable
+partially occluded view. It is a synthetic proof of principle, not a claim
+about uncalibrated clinical multiview video.
+
+Export trajectories from the same Skeleton Lab bundles used above. Current
+bundles are read directly; older bundles without a saved world trajectory are
+deterministically regenerated from their saved `spec.json`.
+
+```bash
+python scripts/export_skeleton_lab_3d.py \
+  --bundles-root output/prism_benchmark/bundles \
+  --output-root output/prism_multiview/trajectories
+
+python scripts/run_3d_noninferiority.py \
+  --input output/prism_multiview/trajectories \
+  --output output/prism_multiview/noninferiority_rows.csv \
+  --summary-root output/prism_multiview/noninferiority \
+  --random-views 20 \
+  --seed 20260930
+```
+
+The lower-level reconstruction benchmark and construct/regularity experiments
+are also available through `scripts/run_multiview_3d_benchmark.py`,
+`scripts/run_multiview_construct_recovery.py`, and
+`scripts/run_multiview_regularity_recovery.py`.
+
+## Mask-aligned pose agreement
+
+Pose is inferred only inside crops derived from the frozen DAM4SAM masks. Pose
+motion is evaluated on the intersection of pose-valid pairs and the exact
+frame pairs retained by the frozen optical-flow analysis. Both modalities use
+the same mask-height and frame-time normalization. The three prespecified
+comparisons are total motion versus total flow, articulated pose motion versus
+torso-corrected flow, and pose torso translation versus flow torso translation.
+
+```bash
+python scripts/run_mask_aligned_pose_baseline.py \
+  --features prism_dam4sam_bouts/prism_bout_features_analysis_ready.csv \
+  --runs-root prism_dam4sam_bouts \
+  --output-root prism_pose_validation \
+  --bootstrap-replicates 2000 \
+  --seed 20260930
+```
+
+The output `pose_agreement_correlations.csv` contains pooled Spearman,
+behavior-specific Spearman, and within-participant/behavior rank associations
+with participant-clustered percentile confidence intervals. The settings file
+records the exact flow columns used in each comparison.
+
+If `pose_tracks/` already contains the cached inference, this command reuses
+those tracks by default. It therefore refreshes the corrected, exactly aligned
+measurements without rerunning the pose network. See
+`docs/pose_agreement_verification.md` for the audit of the previously reported
+results.
+
 ## Tests
 
 ```bash
@@ -100,7 +159,10 @@ PRISM/
 │   ├── optical_flow.py
 │   ├── plotting/                 
 │   ├── topology/
-│   └── validation/skeleton_lab/   # synthetic adapters only
+│   └── validation/
+│       ├── skeleton_lab/          # 2D synthetic benchmark
+│       ├── multiview/             # calibrated 2D/3D benchmark
+│       └── pose_baseline/         # mask-aligned real-video baseline
 ├── scripts/                       # reproducible benchmark entry points
 ├── examples/                      # benchmark configurations
 ├── tests/                         # scientific and integration tests
