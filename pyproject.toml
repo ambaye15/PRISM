@@ -4,12 +4,11 @@ build-backend = "hatchling.build"
 
 [project]
 name = "prism-smm"
-version = "0.2.0"
+version = "0.3.0"
 description = "Interpretable video measurements of stereotypical motor movements."
 readme = "README.md"
 requires-python = ">=3.10,<3.13"
-license = {}
-authors = [{}]
+authors = [{name = "Austin A. MBaye"}]
 dependencies = [
   "numpy==1.26.4",
   "opencv-python-headless==4.10.0.84",
