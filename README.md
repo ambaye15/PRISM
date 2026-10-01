@@ -1,13 +1,12 @@
 # PRISM
 
 <p align="center">
-  <img src="docs/assets/logo.png" width="440" alt="PRISM logo">
+  <img src="docs/assets/logo.png" width="440"
+       alt="PRISM: interpretable measurement of stereotypical movement">
 </p>
 
-<h1 align="center">PRISM</h1>
-
 <p align="center">
-  Interpretable measurement of movements from tracked-person video masks
+  <strong>IInterpretable measurement of movements from tracked-person video masks</strong>
 </p>
 
 PRISM decomposes tracked-person motion into five complementary coordinates:
