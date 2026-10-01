@@ -2,6 +2,10 @@
 
 PRISM decomposes tracked-person video mask movement into intensity, spatial extent, frequency, periodic organization, and duration.
 
+<p align="center">
+  <img src="docs/assets/overview.png" width="600">
+</p>
+
 The repository has two separate layers:
 
 1. `prism/` is the production analysis used on real SMM videos.
