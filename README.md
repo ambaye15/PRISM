@@ -3,7 +3,7 @@
 PRISM decomposes tracked-person video mask movement into intensity, spatial extent, frequency, periodic organization, and duration.
 
 <p align="center">
-  <img src="docs/assets/overview.png" width="1000">
+  <img src="docs/assets/logo.png" width="1000">
 </p>
 
 The repository has two separate layers:
