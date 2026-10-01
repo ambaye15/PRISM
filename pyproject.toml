@@ -32,6 +32,11 @@ tracking = [
   "torch==2.1.0",
   "torchvision==0.16.0",
 ]
+pose = [
+  "matplotlib>=3.8,<4",
+  "seaborn>=0.13,<1",
+  "ultralytics>=8.3,<9",
+]
 stats = [
   "matplotlib>=3.8,<4",
   "statsmodels>=0.14,<1",
