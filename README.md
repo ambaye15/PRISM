@@ -1,5 +1,3 @@
-# PRISM
-
 <p align="center">
   <img src="docs/assets/logo.png" width="440"
        alt="PRISM: interpretable measurement of stereotypical movement">
