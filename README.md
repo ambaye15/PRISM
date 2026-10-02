@@ -4,7 +4,7 @@
 </p>
 
 <p align="center">
-  <strong>IInterpretable measurement of movements from tracked-person video masks</strong>
+  <strong>Interpretable measurement of movements from tracked-person video masks</strong>
 </p>
 
 PRISM decomposes tracked-person motion into five complementary coordinates:
