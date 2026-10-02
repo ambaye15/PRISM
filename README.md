@@ -7,13 +7,12 @@
   <strong>Interpretable measurement of movements from tracked-person video masks</strong>
 </p>
 
-PRISM decomposes tracked-person motion into five complementary coordinates:
+PRISM decomposes tracked-person motion into four complementary coordinates:
 
 - **intensity** — magnitude of motion;
 - **extent** — spatial scale of the mask trajectory;
 - **frequency** — cycles per second;
 - **periodicity** — strength of repetition;
-- **duration** — length of the annotated movement bout.
 
 The repository has two separate layers:
 
@@ -47,7 +46,6 @@ DAM4SAM and its checkpoint remain external because they require their own CUDA e
 | Extent | RMS radius of the unnormalized sliding-window point cloud | mask-distance units |
 | Frequency | interpolated lagged self-similarity spectrum | Hz |
 | Periodicity | birth-weighted dominant H1 loop minus the second-loop penalty | unitless |
-| Duration | annotated onset-to-offset interval | s |
 
 Welch frequency is retained as a benchmark comparator, not the primary reported frequency estimator.
 
