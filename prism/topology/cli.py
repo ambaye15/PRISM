@@ -10,7 +10,11 @@ from .io import load_masks, save_analysis
 
 def build_parser():
     parser = argparse.ArgumentParser(
-        description="Sliding-window PCA and persistent H1 for ordered SAM masks."
+        description=(
+            "Legacy standalone mask-only topology diagnostic. Production "
+            "PRISM frequency and periodicity use prism-topology after "
+            "prism-flow has saved signed-flow states."
+        )
     )
     parser.add_argument("--masks", type=Path, required=True, help="NPZ, NPY, or mask-image directory")
     parser.add_argument("--output", type=Path, required=True)

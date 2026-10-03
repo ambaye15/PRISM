@@ -16,7 +16,7 @@ MEASURES = {
     "intensity": "prism_intensity",
     "extent": "prism_extent",
     "periodicity": "prism_periodicity",
-    "frequency": "topo_mask_frequency_hz",
+    "frequency": "prism_frequency_hz",
     "duration": "duration_sec",
 }
 BEHAVIORS = ["flap", "flap_rock", "rock"]
@@ -33,6 +33,9 @@ def parse_args()  :
     p.add_argument("--strict-mask-valid-fraction", type=float, default=0.90)
     p.add_argument("--strict-flow-valid-fraction", type=float, default=0.90)
     p.add_argument("--strict-ransac-success-fraction", type=float, default=0.80)
+    p.add_argument("--min-cycles", type=float, default=2.5)
+    p.add_argument("--frequency-mask-valid-fraction", type=float, default=0.80)
+    p.add_argument("--nyquist-fraction", type=float, default=0.80)
     p.add_argument("--minimum-bouts-per-session-cell", type=int, default=3)
     return p.parse_args()
 
@@ -84,9 +87,41 @@ def prepare(df , args )  :
     out["days_from_first_session"] = (out["session_date"] - first_person).dt.days
     out["days_within_participant_study"] = (out["session_date"] - first_person_study).dt.days
 
+    if "frequency_eligible" not in out and "prism_frequency_hz" in out:
+        frequency = pd.to_numeric(out["prism_frequency_hz"], errors="coerce")
+        fps = pd.to_numeric(out["fps"], errors="coerce")
+        cycles = pd.to_numeric(
+            out.get(
+                "topo_flow_estimated_cycles",
+                pd.Series(np.nan, index=out.index),
+            ),
+            errors="coerce",
+        )
+        mask_fraction = pd.to_numeric(
+            out.get(
+                "topo_flow_valid_mask_fraction",
+                pd.Series(np.nan, index=out.index),
+            ),
+            errors="coerce",
+        )
+        reliable = truthy(
+            out.get(
+                "topo_flow_period_reliable",
+                pd.Series(False, index=out.index),
+            )
+        )
+        out["frequency_eligible"] = (
+            frequency.notna()
+            & frequency.gt(0)
+            & cycles.ge(args.min_cycles)
+            & mask_fraction.ge(args.frequency_mask_valid_fraction)
+            & frequency.le(args.nyquist_fraction * fps / 2.0)
+            & reliable
+        )
+
     strict_topology = pd.Series(True, index=out.index)
-    if "topo_mask_valid_fraction" in out:
-        strict_topology &= pd.to_numeric(out["topo_mask_valid_fraction"], errors="coerce").ge(
+    if "topo_flow_valid_mask_fraction" in out:
+        strict_topology &= pd.to_numeric(out["topo_flow_valid_mask_fraction"], errors="coerce").ge(
             args.strict_mask_valid_fraction)
     strict_intensity = pd.Series(True, index=out.index)
     if "optical_flow_valid_pair_fraction" in out:

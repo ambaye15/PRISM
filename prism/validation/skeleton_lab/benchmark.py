@@ -14,7 +14,7 @@ from skeleton_lab.spec import ScenarioSpec
 from .analysis import extract_truth
 from .degradation import degrade_sequence
 from .masks import render_exact_sequence
-from .measurements import optical_flow_intensity, topology_measurements
+from .measurements import optical_flow_intensity, production_flow_output, topology_measurements
 from .stabilization import estimate_background_warps, stabilize_sequence
 
 
@@ -249,9 +249,13 @@ def run_benchmark(manifest_path , output_csv , max_dimension  = 256,
         row = condition.to_dict()
         row.update(correction)
         row.update(extract_truth(bundle, behavior.drive, behavior.extent_dof))
-        row.update(optical_flow_intensity(frames, masks, effective_fps))
+        flow_output = production_flow_output(frames, masks, effective_fps)
+        row.update(optical_flow_intensity(frames, masks, effective_fps, flow_output=flow_output))
         try:
-            row.update(topology_measurements(masks, effective_fps, dimension, n_points))
+            row.update(topology_measurements(
+                frames, masks, effective_fps, dimension, n_points,
+                flow_output=flow_output,
+            ))
             row["analysis_error"] = ""
         except (ValueError, RuntimeError) as error:
             row["analysis_error"] = str(error)

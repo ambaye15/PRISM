@@ -8,7 +8,7 @@ import numpy as np
 import pandas as pd
 
 from .masks import render_exact_sequence
-from .measurements import optical_flow_intensity, topology_measurements
+from .measurements import optical_flow_intensity, production_flow_output, topology_measurements
 
 
 def extract_truth(bundle , drive  = "flap", extent_dof  = "shoulder_l.abduction")   :
@@ -50,9 +50,17 @@ def analyze_bundle(
         max_dimension=max_dimension
     )
     row = extract_truth(bundle, drive=drive, extent_dof=extent_dof)
-    row.update(optical_flow_intensity(frames, masks, fps))
-    row.update(topology_measurements(masks, fps, dimension=dimension, n_points=n_points))
-    for key in ("prism_frequency_welch_hz", "prism_frequency_lagged_ssm_hz"):
+    flow_output = production_flow_output(frames, masks, fps)
+    row.update(optical_flow_intensity(frames, masks, fps, flow_output=flow_output))
+    row.update(topology_measurements(
+        frames, masks, fps, dimension=dimension, n_points=n_points,
+        flow_output=flow_output,
+    ))
+    for key in (
+        "prism_frequency_hz",
+        "prism_frequency_welch_hz",
+        "prism_frequency_lagged_ssm_hz",
+    ):
         value = row[key]
         row[key.replace("_hz", "_relative_error")] = (
             abs(float(value) - row["frequency_truth_hz"]) / row["frequency_truth_hz"]

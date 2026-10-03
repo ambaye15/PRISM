@@ -82,3 +82,39 @@ def mask_geometry(masks):
         "body_distance": body_distance,
         "jaccard_distance": np.clip(jaccard, 0.0, 1.0),
     }
+
+
+def framewise_rms_extent(masks, valid_mask=None, minimum_frames=8):
+    """RMS radius of the framewise binary-mask orbit.
+
+    Empty or invalid frames are omitted. Binary Euclidean distances are
+    normalized by the square root of the median observed mask area, so the
+    result is expressed relative to apparent body scale. The pairwise-distance
+    identity is used to avoid constructing an explicit centroid image.
+    """
+    masks = np.asarray(masks)
+    if masks.ndim == 4 and masks.shape[1] == 1:
+        masks = masks[:, 0]
+    if masks.ndim != 3:
+        raise ValueError("masks must have shape (frames, height, width)")
+    masks = masks.astype(bool)
+    observed = masks.reshape(len(masks), -1).any(axis=1)
+    if valid_mask is None:
+        retained = observed
+    else:
+        valid_mask = np.asarray(valid_mask, dtype=bool)
+        if len(valid_mask) != len(masks):
+            raise ValueError("valid_mask and masks must contain the same number of frames")
+        retained = valid_mask & observed
+    valid = masks[retained]
+    if len(valid) < minimum_frames:
+        raise ValueError(
+            "fewer than %d valid observed masks remain for extent" % minimum_frames
+        )
+    distance = mask_geometry(valid)["body_distance"]
+    extent = float(np.sqrt(np.mean(distance * distance) / 2.0))
+    return {
+        "extent_frame_rms": extent,
+        "extent_valid_frames": int(len(valid)),
+        "extent_valid_frame_fraction": float(retained.mean()),
+    }

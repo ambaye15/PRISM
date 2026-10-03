@@ -7,13 +7,19 @@ from prism.optical_flow import (
     OpticalFlowSettings,
     analyze_optical_flow_arrays,
 )
-from prism.topology import TopologySettings, analyze_masks
+from prism.topology import (
+    TopologySettings,
+    analyze_flow_states,
+    analyze_masks,
+    framewise_rms_extent,
+)
 
 
 def optical_flow_intensity(
     frames ,
     masks ,
     fps ,
+    flow_output=None,
 )         :
     """Return the manuscript's torso-centered intensity and its ablations."""
     timestamps = np.arange(len(frames), dtype=np.float64) / float(fps)
@@ -24,12 +30,14 @@ def optical_flow_intensity(
         torso_minimum_pixels=12,
         maximum_flow_dimension=768,
     )
-    result = analyze_optical_flow_arrays(
-        frames,
-        masks,
-        timestamps,
-        settings=settings,
-    )["measurements"]
+    if flow_output is None:
+        flow_output = analyze_optical_flow_arrays(
+            frames,
+            masks,
+            timestamps,
+            settings=settings,
+        )
+    result = flow_output["measurements"]
     total = result.get(
         "optical_flow_pixel_p75_body_heights_per_sec_median"
     )
@@ -71,13 +79,42 @@ def _topology_summary(
 
 
 def topology_measurements(
+    frames,
     masks ,
     fps ,
     dimension  = 23,
     n_points  = 300,
+    flow_output=None,
 )         :
-    """Return primary lagged-SSM measures plus the Welch frequency ablation."""
-    primary = _topology_summary(
+    """Return flow frequency/PS, framewise RMS extent, and frequency ablations."""
+    timestamps = np.arange(len(masks), dtype=np.float64) / float(fps)
+    flow_settings = OpticalFlowSettings(
+        camera_correction="none",
+        torso_correction=True,
+        minimum_valid_pixels=25,
+        torso_minimum_pixels=12,
+        maximum_flow_dimension=768,
+    )
+    if flow_output is None:
+        flow_output = analyze_optical_flow_arrays(
+            frames, masks, timestamps, settings=flow_settings
+        )
+    states = flow_output["flow_states"]
+    settings = TopologySettings(
+        d=dimension,
+        n_points=n_points,
+        frequency_method="lagged_ssm",
+    )
+    flow = analyze_flow_states(
+        states["total"],
+        states["confidence"],
+        states["timestamps_sec"],
+        pair_indices=states["pair_indices"],
+        settings=settings,
+    )
+    period = flow["summary"]["period"]
+    extent = framewise_rms_extent(masks)
+    mask_primary = _topology_summary(
         masks,
         fps,
         method="lagged_ssm",
@@ -92,12 +129,14 @@ def topology_measurements(
         n_points=n_points,
     )
     return {
-        "prism_extent": primary["scale"]["point_cloud_orbit_radius"],
-        "prism_periodicity": primary["normalized"]["periodicity_score"],
-        "prism_frequency_lagged_ssm_hz": primary["period"]["frequency_hz"],
+        "prism_extent": extent["extent_frame_rms"],
+        "prism_periodicity": flow["summary"]["normalized"]["periodicity_score"],
+        "prism_frequency_hz": period["frequency_hz"],
+        "prism_period_sec": period["period_sec"],
+        "flow_spectral_concentration": period.get("spectral_concentration"),
+        "prism_frequency_lagged_ssm_hz": mask_primary["period"]["frequency_hz"],
         "prism_frequency_welch_hz": welch["period"]["frequency_hz"],
-        "prism_period_sec": primary["period"]["period_sec"],
-        "lagged_ssm_spectral_concentration": primary["period"].get(
+        "lagged_ssm_spectral_concentration": mask_primary["period"].get(
             "spectral_concentration"
         ),
         "welch_spectral_concentration": welch["period"].get(
@@ -107,3 +146,17 @@ def topology_measurements(
         "welch_explained_variance": welch["period"].get("pc_variance_ratio"),
     }
 
+
+def production_flow_output(frames, masks, fps):
+    """Compute the shared flow result once for intensity and topology."""
+    timestamps = np.arange(len(frames), dtype=np.float64) / float(fps)
+    settings = OpticalFlowSettings(
+        camera_correction="none",
+        torso_correction=True,
+        minimum_valid_pixels=25,
+        torso_minimum_pixels=12,
+        maximum_flow_dimension=768,
+    )
+    return analyze_optical_flow_arrays(
+        frames, masks, timestamps, settings=settings
+    )

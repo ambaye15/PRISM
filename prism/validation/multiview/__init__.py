@@ -1,6 +1,5 @@
-"""Synthetic multiview 3D proof-of-principle tools for PRISM."""
+"""Synthetic multiview construct-recovery tools for PRISM."""
 
-from .benchmark import run_benchmark
+from .construct_recovery import run_construct_recovery
 
-__all__ = ["run_benchmark"]
-
+__all__ = ["run_construct_recovery"]

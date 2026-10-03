@@ -67,8 +67,14 @@ def periodicity_score_from_diagram(diagram):
 def persistence_summary(distance, compute = True, *, normalized_cloud = False):
     """Compute finite H1 persistence with Ripser."""
     empty = np.empty((0, 2), dtype=np.float64)
+    distance = np.asarray(distance, dtype=np.float64)
+    diameter = float(np.max(distance))
+    geometry = {
+        "point_cloud_diameter": diameter,
+        "point_cloud_orbit_radius": orbit_radius_from_distances(distance),
+    }
     if not compute:
-        return {"h1_computed": False}, empty
+        return {"h1_computed": False, **geometry}, empty
     try:
         from ripser import ripser
     except ImportError as error:
@@ -79,7 +85,6 @@ def persistence_summary(distance, compute = True, *, normalized_cloud = False):
     diagram = np.asarray(ripser(distance, distance_matrix=True, maxdim=1, coeff = 47)["dgms"][1], dtype=np.float64)
     diagram = diagram[np.isfinite(diagram).all(axis=1)] if diagram.size else empty
     persistence = diagram[:, 1] - diagram[:, 0] if diagram.size else np.asarray([])
-    diameter = float(np.max(distance))
     maximum = float(persistence.max()) if persistence.size else 0.0
     return {
         "h1_computed": True,
@@ -91,8 +96,7 @@ def persistence_summary(distance, compute = True, *, normalized_cloud = False):
             if normalized_cloud
             else None
         ),
-        "point_cloud_diameter": diameter,
-        "point_cloud_orbit_radius": orbit_radius_from_distances(distance),
+        **geometry,
     }, diagram
 
 def cycle_return_distance(distance, starts, period):
@@ -221,9 +225,6 @@ def analyze_masks(masks, timestamps, *, valid_mask = None, settings = None):
             "tau_sec": cloud["tau_sec"],
             "window_span_sec": cloud["window_span_sec"],
             "n_points_before_filter": settings.n_points,
-
-            # Keep the original key for backward compatibility.
-            "n_points_retained": len(scale_keep),
 
             "n_scale_points_retained": len(scale_keep),
             "n_normalized_points_before_density": int(

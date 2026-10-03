@@ -13,6 +13,7 @@ from scipy.stats import spearmanr
 MEASURES = {
     "intensity": ("intensity_truth_height_s", "prism_intensity"),
     "extent": ("extent_truth_deg", "prism_extent"),
+    "flow_frequency": ("frequency_truth_hz", "prism_frequency_hz"),
     "welch_frequency": ("frequency_truth_hz", "prism_frequency_welch_hz"),
     "lagged_ssm_frequency": ("frequency_truth_hz", "prism_frequency_lagged_ssm_hz"),
 }
@@ -20,6 +21,7 @@ MEASURES = {
 DISPLAY = {
     "intensity": ("PRISM intensity", "Optical-flow intensity (body heights/s)"),
     "extent": ("PRISM extent", "Sliding-window orbit radius"),
+    "flow_frequency": ("Signed-flow lagged-SSM frequency", "Estimated frequency (Hz)"),
     "welch_frequency": ("PC1--3 Welch frequency", "Estimated frequency (Hz)"),
     "lagged_ssm_frequency": ("Lagged-SSM frequency", "Estimated frequency (Hz)"),
 }
@@ -27,6 +29,7 @@ DISPLAY = {
 ROBUST_DISPLAY = {
     "prism_intensity": "PRISM intensity",
     "prism_extent": "PRISM extent",
+    "prism_frequency_hz": "Signed-flow frequency",
     "prism_frequency_welch_hz": "PC1--3 Welch frequency",
     "prism_frequency_lagged_ssm_hz": "Lagged-SSM frequency",
     "prism_periodicity": "SW1PerS periodicity",
@@ -157,7 +160,7 @@ def main()  :
         required = {
             "condition_id", "family", "nuisance", "match_id", "behavior", "level",
             "prism_intensity", "prism_extent", "prism_periodicity",
-            "prism_frequency_welch_hz", "prism_frequency_lagged_ssm_hz",
+            "prism_frequency_hz", "prism_frequency_welch_hz", "prism_frequency_lagged_ssm_hz",
         }
         missing = sorted(required.difference(corrected.columns))
         if missing:
@@ -208,7 +211,8 @@ def main()  :
 
     # Frequency performance as a function of bout length and observed cycles.
     duration_rows = []
-    for method, column in (("PC1-3 Welch", "prism_frequency_welch_hz"),
+    for method, column in (("Signed-flow lagged SSM", "prism_frequency_hz"),
+                           ("PC1-3 Welch", "prism_frequency_welch_hz"),
                            ("Lagged SSM", "prism_frequency_lagged_ssm_hz")):
         subset = clean.copy()
         subset["relative_error"] = (
@@ -237,7 +241,7 @@ def main()  :
         if key not in baseline.index:
             continue
         base = baseline.loc[key]
-        for measure in ["prism_intensity", "prism_extent", "prism_frequency_welch_hz",
+        for measure in ["prism_intensity", "prism_extent", "prism_frequency_hz", "prism_frequency_welch_hz",
                         "prism_frequency_lagged_ssm_hz", "prism_periodicity"]:
             value, reference = row.get(measure), base.get(measure)
             deviation_rows.append({"behavior": row.behavior, "nuisance": row.nuisance,

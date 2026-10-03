@@ -24,6 +24,7 @@ class OpticalFlowSettings:
     minimum_retained_pixel_fraction = field(0.20)
     minimum_valid_pair_fraction = field(0.80)
     maximum_flow_dimension = field(768)
+    flow_preblur_sigma = field(0.75)
     body_height_smoothing_window = field(5)
     forward_backward_check = field(True)
     forward_backward_threshold_body_fraction = field(0.02)
@@ -38,6 +39,19 @@ class OpticalFlowSettings:
     torso_radius_x_fraction = field(0.18)
     torso_radius_y_fraction = field(0.22)
     torso_minimum_pixels = field(25)
+    flow_state_grid_height = field(48)
+    flow_state_grid_width = field(32)
+
+
+def _prepare_flow_frame(frame, sigma):
+    """Apply the validated light spatial smoothing used before DIS."""
+    if sigma is None or float(sigma) <= 0:
+        return frame
+    import cv2
+
+    value = float(sigma)
+    kernel = max(3, int(np.ceil(6.0 * value)) | 1)
+    return cv2.GaussianBlur(frame, (kernel, kernel), value)
 
 
 def _read_json(path):
@@ -813,19 +827,6 @@ def summarize_flow_pair(
         "flow_forward_backward_checked": bool(settings.forward_backward_check),
     }
     base.update(correction_diagnostics)
-    # Preserve legacy fields used by existing downstream tables.
-    base["flow_background_pixel_count"] = int(
-        base.get("flow_camera_background_pixel_count", 0) or 0
-    )
-    base["flow_background_translation_x_pixels_per_frame"] = float(
-        base.get("flow_camera_translation_x_pixels_per_frame", 0.0) or 0.0
-    )
-    base["flow_background_translation_y_pixels_per_frame"] = float(
-        base.get("flow_camera_translation_y_pixels_per_frame", 0.0) or 0.0
-    )
-    base["flow_background_translation_body_heights_per_sec"] = float(
-        base.get("flow_camera_motion_body_heights_per_sec", 0.0) or 0.0
-    )
     if forward_backward_error is not None and retained_pixels:
         retained_errors = forward_backward_error[region]
         base["flow_forward_backward_error_body_fraction_median"] = float(
@@ -888,6 +889,50 @@ def summarize_flow_pair(
             }
         )
     return base
+
+
+def _signed_flow_state(
+    flow,
+    corrected_flow,
+    previous_mask,
+    current_mask,
+    backward_flow,
+    body_height,
+    delta_time,
+    settings,
+):
+    """Return the camera-corrected total signed-flow state for topology."""
+    from .topology.flow import body_grid
+
+    region = _measurement_region(
+        flow,
+        previous_mask,
+        current_mask,
+        body_height=body_height,
+        settings=settings,
+    )
+    region &= np.isfinite(flow).all(axis=2)
+    region &= np.isfinite(corrected_flow).all(axis=2)
+    if settings.forward_backward_check:
+        if backward_flow is None:
+            return None, None
+        consistent, _ = _forward_backward_consistency(
+            flow,
+            backward_flow,
+            body_height,
+            settings.forward_backward_threshold_body_fraction,
+        )
+        region &= consistent
+    if int(region.sum()) < int(settings.minimum_valid_pixels):
+        return None, None
+    return body_grid(
+        corrected_flow,
+        region,
+        previous_mask,
+        body_height,
+        delta_time,
+        (settings.flow_state_grid_height, settings.flow_state_grid_width),
+    )
 
 
 def _bout_measurements(rows, settings):
@@ -964,7 +1009,7 @@ def _bout_measurements(rows, settings):
         "flow_active_area_fraction",
         "flow_directional_coherence",
         "flow_retained_pixel_fraction",
-        "flow_background_translation_body_heights_per_sec",
+        "flow_camera_motion_body_heights_per_sec",
         "flow_camera_residual_background_body_heights_per_sec",
         "flow_forward_backward_error_body_fraction_median",
         "flow_torso_core_pixel_count",
@@ -1023,6 +1068,10 @@ def analyze_optical_flow_arrays(
         masks, valid_mask, settings.body_height_smoothing_window
     )
     rows = []
+    states = []
+    confidences = []
+    state_times = []
+    pair_indices = []
     for index in range(len(frames) - 1):
         delta_time = float(timestamps[index + 1] - timestamps[index])
         row = {
@@ -1036,9 +1085,15 @@ def analyze_optical_flow_arrays(
             row["flow_pair_failure"] = "missing_or_unobservable_mask"
             rows.append(row)
             continue
-        flow = estimator.estimate(frames[index], frames[index + 1])
+        previous_flow_frame = _prepare_flow_frame(
+            frames[index], settings.flow_preblur_sigma
+        )
+        current_flow_frame = _prepare_flow_frame(
+            frames[index + 1], settings.flow_preblur_sigma
+        )
+        flow = estimator.estimate(previous_flow_frame, current_flow_frame)
         backward = (
-            estimator.estimate(frames[index + 1], frames[index])
+            estimator.estimate(current_flow_frame, previous_flow_frame)
             if settings.forward_backward_check
             else None
         )
@@ -1066,8 +1121,33 @@ def analyze_optical_flow_arrays(
                 body_height_override=body_height,
             )
         )
+        if row.get("flow_pair_valid"):
+            state, confidence = _signed_flow_state(
+                flow,
+                corrected,
+                masks[index],
+                masks[index + 1],
+                backward,
+                body_height,
+                delta_time,
+                settings,
+            )
+            if state is not None:
+                states.append(state)
+                confidences.append(confidence)
+                state_times.append(0.5 * (timestamps[index] + timestamps[index + 1]))
+                pair_indices.append(index)
         rows.append(row)
-    return {"measurements": _bout_measurements(rows, settings), "frame_pairs": rows}
+    return {
+        "measurements": _bout_measurements(rows, settings),
+        "frame_pairs": rows,
+        "flow_states": {
+            "total": np.asarray(states, dtype=np.float32),
+            "confidence": np.asarray(confidences, dtype=np.float32),
+            "timestamps_sec": np.asarray(state_times, dtype=np.float64),
+            "pair_indices": np.asarray(pair_indices, dtype=np.int64),
+        },
+    }
 
 
 def _read_video(path):
@@ -1181,8 +1261,9 @@ def analyze_optical_flow_episode(
     if (
         summary_path.is_file()
         and not force
-        and existing.get("schema_version") == "prism_masked_optical_flow.v1"
+        and existing.get("schema_version") == "prism_masked_optical_flow.v3"
         and existing.get("settings") == requested_settings
+        and (run_dir / "optical_flow_states.npz").is_file()
     ):
         return existing
 
@@ -1218,6 +1299,10 @@ def analyze_optical_flow_episode(
 
     video_writer = None
     rows = []
+    states = []
+    confidences = []
+    state_times = []
+    pair_indices = []
     for index in range(len(frames) - 1):
         delta_time = float(timestamps[index + 1] - timestamps[index])
         is_core_pair = bool(core_mask[index] and core_mask[index + 1])
@@ -1246,11 +1331,17 @@ def analyze_optical_flow_episode(
             rows.append(row)
             continue
 
-        flow = estimator.estimate(frames[index], frames[index + 1])
+        previous_flow_frame = _prepare_flow_frame(
+            frames[index], settings.flow_preblur_sigma
+        )
+        current_flow_frame = _prepare_flow_frame(
+            frames[index + 1], settings.flow_preblur_sigma
+        )
+        flow = estimator.estimate(previous_flow_frame, current_flow_frame)
         backward_flow = None
         if settings.forward_backward_check:
             backward_flow = estimator.estimate(
-                frames[index + 1], frames[index]
+                current_flow_frame, previous_flow_frame
             )
         body_height = float(
             np.median(smoothed_heights[index : index + 2])
@@ -1278,6 +1369,25 @@ def analyze_optical_flow_episode(
         )
         row.update(pair)
         rows.append(row)
+
+        if pair.get("flow_pair_valid"):
+            state, confidence = _signed_flow_state(
+                flow,
+                corrected_flow,
+                masks[index],
+                masks[index + 1],
+                backward_flow,
+                body_height,
+                delta_time,
+                settings,
+            )
+            if state is not None:
+                states.append(state)
+                confidences.append(confidence)
+                state_times.append(
+                    0.5 * (timestamps[index] + timestamps[index + 1])
+                )
+                pair_indices.append(index)
 
         if create_video and pair.get("flow_pair_valid"):
             import cv2
@@ -1329,7 +1439,7 @@ def analyze_optical_flow_episode(
     measurements = _bout_measurements(rows, settings)
     source_summary = _read_json(run_dir / "subject_dino_summary.json")
     summary = {
-        "schema_version": "prism_masked_optical_flow.v1",
+        "schema_version": "prism_masked_optical_flow.v3",
         "episode_id": run_dir.name,
         "episode": source_summary.get("episode") or {},
         "fps": source_summary.get("fps"),
@@ -1337,8 +1447,17 @@ def analyze_optical_flow_episode(
         "source_masks": str(run_dir / "sam2_masks_fixed_crop.npz"),
         "settings": requested_settings,
         "measurements": measurements,
+        "flow_states": str(run_dir / "optical_flow_states.npz"),
     }
     _write_rows(run_dir / "optical_flow_frames.csv", rows)
+    np.savez_compressed(
+        run_dir / "optical_flow_states.npz",
+        total=np.asarray(states, dtype=np.float32),
+        confidence=np.asarray(confidences, dtype=np.float32),
+        timestamps_sec=np.asarray(state_times, dtype=np.float64),
+        pair_indices=np.asarray(pair_indices, dtype=np.int64),
+        representation=np.asarray("camera_corrected_total_signed_flow"),
+    )
     summary_path.write_text(
         json.dumps(summary, indent=2, sort_keys=True, default=_json_value) + "\n",
         encoding="utf-8",

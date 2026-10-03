@@ -1,4 +1,66 @@
+from pathlib import Path
+
 import numpy as np
+
+from .measurements import center_trajectory
+
+
+def load_trajectory(path):
+    """Load one exported Skeleton Lab 3D trajectory."""
+    data = np.load(path, allow_pickle=True)
+    keys = set(data.files)
+    joint_key = next(
+        (
+            key
+            for key in ("joints_3d", "keypoints_3d", "world_joints")
+            if key in keys
+        ),
+        None,
+    )
+    if joint_key is None:
+        raise ValueError("%s has no supported 3D joint array" % path)
+    joints = np.asarray(data[joint_key], dtype=float)
+    if joints.ndim != 3 or joints.shape[2] != 3:
+        raise ValueError("3D joints must have shape (frames, joints, 3)")
+    fps = float(np.asarray(data["fps"]).reshape(-1)[0])
+    condition_id = (
+        str(np.asarray(data["condition_id"]).reshape(-1)[0])
+        if "condition_id" in keys
+        else Path(path).stem
+    )
+    behavior = (
+        str(np.asarray(data["behavior"]).reshape(-1)[0])
+        if "behavior" in keys
+        else "unknown"
+    )
+    return joints, fps, condition_id, behavior
+
+
+def camera_pool():
+    """Predeclared candidate deployment views used for view selection."""
+    views = []
+    for elevation in (0.0, 20.0):
+        for azimuth in np.arange(0.0, 360.0, 30.0):
+            views.append(look_at_camera(float(azimuth), elevation))
+    return views
+
+
+def dominant_motion_axis(points):
+    """Principal axis of root-centered three-dimensional velocity."""
+    centered = center_trajectory(points)
+    velocity = np.diff(centered, axis=0).reshape(-1, 3)
+    velocity = velocity[np.isfinite(velocity).all(axis=1)]
+    covariance = velocity.T @ velocity
+    values, vectors = np.linalg.eigh(covariance)
+    return vectors[:, int(np.argmax(values))]
+
+
+def projected_motion_fraction(axis, camera):
+    """Fraction of the dominant 3D motion axis visible in the image plane."""
+    axis = np.asarray(axis, dtype=float)
+    axis /= np.linalg.norm(axis)
+    viewing_direction = np.asarray(camera["rotation"], dtype=float)[2]
+    return float(np.sqrt(max(0.0, 1.0 - np.dot(axis, viewing_direction) ** 2)))
 
 
 def normalize(vector):
@@ -90,4 +152,3 @@ def add_observation_noise(points, sigma_px, missing_probability, rng):
     missing = rng.random(finite.shape) < missing_probability
     output[missing] = np.nan
     return output
-

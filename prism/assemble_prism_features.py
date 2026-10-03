@@ -16,7 +16,7 @@ def main()  :
     args = parser.parse_args()
     root = args.runs_root.expanduser().resolve()
     flow_path = root / "optical_flow_bout_features.csv"
-    topology_path = root / "sliding_window_topology_bout_features.csv"
+    topology_path = root / "flow_topology_bout_features.csv"
     for path in (flow_path, topology_path):
         if not path.is_file():
             raise FileNotFoundError(path)
@@ -38,8 +38,10 @@ def main()  :
     merged["prism_intensity"] = merged[torso_column]
     torso_speed = "optical_flow_torso_translation_body_heights_per_sec_median"
     merged["prism_torso_translation_speed"] = merged.get(torso_speed)
-    merged["prism_extent"] = merged["fixed_scale_point_cloud_orbit_radius"]
-    merged["prism_periodicity"] = merged["fixed_normalized_periodicity_score"]
+    merged["prism_extent"] = merged["mask_frame_rms_orbit_radius"]
+    merged["prism_periodicity"] = merged["flow_normalized_periodicity_score"]
+    merged["prism_frequency_hz"] = merged["topo_flow_frequency_hz"]
+    merged["prism_period_sec"] = merged["topo_flow_period_sec"]
     args.output.expanduser().resolve().parent.mkdir(parents=True, exist_ok=True)
     output = args.output.expanduser().resolve()
     merged.to_csv(output, index=False)
@@ -48,6 +50,7 @@ def main()  :
         "intensity_available": int(merged["prism_intensity"].notna().sum()),
         "extent_available": int(merged["prism_extent"].notna().sum()),
         "periodicity_available": int(merged["prism_periodicity"].notna().sum()),
+        "frequency_available": int(merged["prism_frequency_hz"].notna().sum()),
         "output": str(output),
     }
     output.with_suffix(".report.json").write_text(json.dumps(report, indent=2) + "\n")

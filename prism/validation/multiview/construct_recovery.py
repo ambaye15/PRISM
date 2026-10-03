@@ -6,10 +6,16 @@ import pandas as pd
 from scipy.ndimage import gaussian_filter1d
 from scipy.stats import spearmanr
 
-from .benchmark import load_trajectory
 from .measurements import all_measurements, body_height
-from .noninferiority import camera_pool, dominant_motion_axis, projected_motion_fraction
-from .geometry import add_observation_noise, project, triangulate_sequence
+from .geometry import (
+    add_observation_noise,
+    camera_pool,
+    dominant_motion_axis,
+    load_trajectory,
+    project,
+    projected_motion_fraction,
+    triangulate_sequence,
+)
 
 
 METHODS = (
@@ -211,18 +217,18 @@ def cross_validated_calibration(frame):
     return frame
 
 
-def bootstrap_difference(clear, multiview, margin, replicates, rng):
+def bootstrap_difference(clear, multiview, replicates, rng):
     difference = np.asarray(clear) - np.asarray(multiview)
     difference = difference[np.isfinite(difference)]
     if not len(difference):
-        return np.nan, np.nan, np.nan, np.nan
+        return np.nan, np.nan, np.nan
     estimates = np.empty(replicates)
     for index in range(replicates):
         sample = rng.integers(0, len(difference), len(difference))
         estimates[index] = np.median(difference[sample])
     estimate = float(np.median(difference))
     low, high = np.quantile(estimates, [0.025, 0.975])
-    return estimate, float(low), float(high), bool(high < margin)
+    return estimate, float(low), float(high)
 
 
 def construct_summary(frame, output_root, bootstrap_replicates=2000,
@@ -260,18 +266,17 @@ def construct_summary(frame, output_root, bootstrap_replicates=2000,
 
     paired_rows = []
     rng = np.random.default_rng(seed)
-    for measure, error, margin in (
-        ("intensity", "intensity_relative_error", 0.10),
-        ("extent", "extent_relative_error", 0.10),
-        ("frequency", "frequency_relative_error", 0.05),
+    for measure, error in (
+        ("intensity", "intensity_relative_error"),
+        ("extent", "extent_relative_error"),
+        ("frequency", "frequency_relative_error"),
     ):
         wide = calibrated.pivot_table(
             index="condition_id", columns="method", values=error, aggfunc="median"
         ).dropna(subset=["clear_single_view", "calibrated_multiview_3d"])
-        estimate, low, high, passed = bootstrap_difference(
+        estimate, low, high = bootstrap_difference(
             wide.clear_single_view,
             wide.calibrated_multiview_3d,
-            margin,
             bootstrap_replicates,
             rng,
         )
@@ -282,11 +287,9 @@ def construct_summary(frame, output_root, bootstrap_replicates=2000,
             "clear_minus_multiview": estimate,
             "ci_low": low,
             "ci_high": high,
-            "noninferiority_margin": margin,
-            "noninferior": passed,
         })
     paired = pd.DataFrame(paired_rows)
-    paired.to_csv(output_root / "paired_noninferiority.csv", index=False)
+    paired.to_csv(output_root / "paired_view_comparison.csv", index=False)
     return calibrated, summary, paired
 
 
@@ -402,10 +405,9 @@ def regularity_summary(frame, output_root, bootstrap_replicates=2000,
     n = min(len(correlations.get("clear_single_view", [])),
             len(correlations.get("calibrated_multiview_3d", [])))
     rng = np.random.default_rng(seed)
-    estimate, low, high, passed = bootstrap_difference(
+    estimate, low, high = bootstrap_difference(
         1.0 - correlations["clear_single_view"][:n],
         1.0 - correlations["calibrated_multiview_3d"][:n],
-        0.10,
         bootstrap_replicates,
         rng,
     )
@@ -416,10 +418,8 @@ def regularity_summary(frame, output_root, bootstrap_replicates=2000,
         "clear_minus_multiview": estimate,
         "ci_low": low,
         "ci_high": high,
-        "noninferiority_margin": 0.10,
-        "noninferior": passed,
     }])
-    paired.to_csv(output_root / "regularity_paired_noninferiority.csv", index=False)
+    paired.to_csv(output_root / "regularity_paired_view_comparison.csv", index=False)
     return summary, paired
 
 
@@ -447,4 +447,3 @@ def run_construct_recovery(input_path, output_csv, summary_root,
         raw, summary_root, bootstrap_replicates, seed
     )
     return raw, calibrated, summary, paired
-

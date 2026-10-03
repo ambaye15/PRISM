@@ -14,7 +14,7 @@ DEFAULT_MEASURES = {
     "intensity": "prism_intensity",
     "extent": "prism_extent",
     "periodicity": "prism_periodicity",
-    "frequency": "topo_mask_frequency_hz",
+    "frequency": "prism_frequency_hz",
     "duration": "duration_sec",
 }
 BEHAVIOR_ORDER = ["flap", "flap_rock", "rock"]
@@ -38,10 +38,6 @@ def parse_args()  :
     return p.parse_args()
 
 
-def first_existing(df , candidates )    :
-    return next((c for c in candidates if c in df.columns), None)
-
-
 def numeric_column(df , name )  :
     if name not in df.columns:
         return pd.Series(np.nan, index=df.index, dtype=float)
@@ -50,18 +46,16 @@ def numeric_column(df , name )  :
 
 def normalize_columns(df )  :
     df = df.copy()
-    aliases = {
-        "prism_intensity": ["prism_intensity", "optical_flow_pixel_p75_body_heights_per_sec_median"],
-        "prism_extent": ["prism_extent", "fixed_scale_point_cloud_orbit_radius"],
-        "prism_periodicity": ["prism_periodicity", "fixed_normalized_periodicity_score"],
-        "duration_sec": ["duration_sec", "bout_duration_sec", "duration"],
-        "session_id": ["session_id", "video_id"],
-    }
-    for target, candidates in aliases.items():
-        source = first_existing(df, candidates)
-        if target not in df and source is not None:
-            df[target] = df[source]
-    required = ["participant_id", "behavior", "session_id"]
+    required = [
+        "participant_id",
+        "behavior",
+        "session_id",
+        "prism_intensity",
+        "prism_extent",
+        "prism_periodicity",
+        "prism_frequency_hz",
+        "duration_sec",
+    ]
     missing = [c for c in required if c not in df]
     if missing:
         raise ValueError("Missing required columns: " + ", ".join(missing))
@@ -71,11 +65,11 @@ def normalize_columns(df )  :
 
 def frequency_eligibility(df , args )  :
     out = df.copy()
-    freq = numeric_column(out, "topo_mask_frequency_hz")
+    freq = numeric_column(out, "prism_frequency_hz")
     fps = numeric_column(out, "fps")
-    cycles = numeric_column(out, "topo_mask_estimated_cycles")
-    valid_fraction = numeric_column(out, "topo_mask_valid_fraction")
-    reliable = out.get("topo_mask_period_reliable", pd.Series(False, index=out.index))
+    cycles = numeric_column(out, "topo_flow_estimated_cycles")
+    valid_fraction = numeric_column(out, "topo_flow_valid_mask_fraction")
+    reliable = out.get("topo_flow_period_reliable", pd.Series(False, index=out.index))
     reliable = reliable.fillna(False).astype(bool)
     finite_positive = freq.notna() & freq.gt(0)
     cycle_ok = cycles.notna() & cycles.ge(args.min_cycles)
@@ -311,7 +305,7 @@ def main()  :
         "n_bouts": len(df), "n_participants": int(df["participant_id"].nunique()),
         "n_sessions": int(df["session_id"].nunique()), "measures": measures,
         "frequency_eligible": int(df["frequency_eligible"].sum()),
-        "frequency_total": int(numeric_column(df, "topo_mask_frequency_hz").notna().sum()),
+        "frequency_total": int(numeric_column(df, "prism_frequency_hz").notna().sum()),
         "settings": {"minimum_cell_size": args.minimum_cell_size, "min_cycles": args.min_cycles,
                      "minimum_mask_valid_fraction": args.minimum_mask_valid_fraction,
                      "nyquist_fraction": args.nyquist_fraction,

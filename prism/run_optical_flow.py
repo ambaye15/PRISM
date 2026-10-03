@@ -65,6 +65,7 @@ def build_parser():
         "--minimum-valid-pair-fraction", type=float, default=0.80
     )
     parser.add_argument("--maximum-flow-dimension", type=int, default=768)
+    parser.add_argument("--flow-preblur-sigma", type=float, default=0.75)
     parser.add_argument("--body-height-smoothing-window", type=int, default=5)
     parser.add_argument(
         "--no-forward-backward-check",
@@ -97,6 +98,8 @@ def build_parser():
     parser.add_argument("--torso-radius-x-fraction", type=float, default=0.18)
     parser.add_argument("--torso-radius-y-fraction", type=float, default=0.22)
     parser.add_argument("--torso-minimum-pixels", type=int, default=25)
+    parser.add_argument("--flow-state-grid-height", type=int, default=48)
+    parser.add_argument("--flow-state-grid-width", type=int, default=32)
     parser.add_argument("--save-videos", action="store_true")
     parser.add_argument("--no-figures", action="store_true")
     parser.add_argument("--force", action="store_true")
@@ -214,6 +217,7 @@ def main():
         minimum_retained_pixel_fraction=args.minimum_retained_pixel_fraction,
         minimum_valid_pair_fraction=args.minimum_valid_pair_fraction,
         maximum_flow_dimension=args.maximum_flow_dimension,
+        flow_preblur_sigma=args.flow_preblur_sigma,
         body_height_smoothing_window=args.body_height_smoothing_window,
         forward_backward_check=not args.no_forward_backward_check,
         forward_backward_threshold_body_fraction=(
@@ -234,6 +238,8 @@ def main():
         torso_radius_x_fraction=args.torso_radius_x_fraction,
         torso_radius_y_fraction=args.torso_radius_y_fraction,
         torso_minimum_pixels=args.torso_minimum_pixels,
+        flow_state_grid_height=args.flow_state_grid_height,
+        flow_state_grid_width=args.flow_state_grid_width,
     )
     estimator = make_flow_estimator(settings)
     rows = []
@@ -248,11 +254,12 @@ def main():
             existing = json.loads(summary_path.read_text(encoding="utf-8"))
         will_reuse = bool(
             not args.force
-            and existing.get("schema_version") == "prism_masked_optical_flow.v1"
+            and existing.get("schema_version") == "prism_masked_optical_flow.v3"
             and existing.get("settings") == {
                 name: getattr(settings, name)
                 for name in settings.__record_fields__
             }
+            and (episode_dir / "optical_flow_states.npz").is_file()
         )
         try:
             summary = analyze_optical_flow_episode(
@@ -300,7 +307,7 @@ def main():
         )
     n_joined = _join_feature_tables(base_path, rows, combined_path)
     report = {
-        "schema_version": "prism_masked_optical_flow_batch.v1",
+        "schema_version": "prism_masked_optical_flow_batch.v2",
         "n_selected": len(episode_dirs),
         "n_completed": completed,
         "n_reused": reused,
