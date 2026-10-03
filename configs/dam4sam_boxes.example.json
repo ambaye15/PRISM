@@ -1,0 +1,9 @@
+{
+  "schema_version": "prism.dam4sam.boxes.v1",
+  "videos": {
+    "001-01-18-08_study1": {
+      "prompt_frame": 0,
+      "box_xywh_pixels": [100, 60, 120, 210]
+    }
+  }
+}
