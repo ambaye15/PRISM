@@ -31,10 +31,9 @@ def main():
     )
     print("\nREGULARITY RECOVERY")
     print(summary.to_string(index=False))
-    print("\nPAIRED NON-INFERIORITY")
+    print("\nPAIRED VIEW COMPARISON")
     print(paired.to_string(index=False))
 
 
 if __name__ == "__main__":
     main()
-

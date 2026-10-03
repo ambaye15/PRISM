@@ -7,7 +7,12 @@ from prism.validation.skeleton_lab.benchmark import run_benchmark
 
 
 def main()  :
-    parser = argparse.ArgumentParser()
+    parser = argparse.ArgumentParser(
+        description=(
+            "Run the shared production PRISM measurements: torso-corrected "
+            "intensity, mask RMS extent, and signed-flow frequency/periodicity."
+        )
+    )
     parser.add_argument("--manifest", type=Path, required=True)
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--max-dimension", type=int, default=256)
