@@ -99,8 +99,8 @@ prism-topology \
   --n-points 300 \
   --min-period-sec 0.40 \
   --max-period-sec 5.0 \
-  --min-cycles 2.5 \
-  --force
+  --min-cycles 2.5
+  
 
 # 5. Assemble the canonical bout-level table
 prism-assemble \
