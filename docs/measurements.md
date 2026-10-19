@@ -16,7 +16,7 @@ Intensity uses torso-relative flow. Frequency and PS use total flow after camera
 For a valid frame pair, let $v_t(p)$ be camera-corrected flow displacement, $c_t$ the estimated translation of a central mask region, $h_t$ the smoothed mask-height scale, and $\Delta t$ the elapsed time. Over retained pixels $R_t$,
 
 $$
-I_t=\frac{1}{h_t\Delta t}quantile_{0.75}\left\{\lVert v_t(p)-c_t\rVert_2:p\in R_t\right\},
+I_t=\frac{1}{h_t\Delta t}quantile_{0.75}\{\lVert v_t(p)-c_t\rVert_2:p\in R_t\},
 \qquad I=median_t I_t.
 $$
 
