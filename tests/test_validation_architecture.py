@@ -1,10 +1,13 @@
 import ast
 from pathlib import Path
+import subprocess
+import sys
 
 
-def test_production_package_does_not_import_skeleton_lab():
+def test_measurement_core_does_not_import_skeleton_lab():
     root = Path(__file__).parents[1] / "prism"
-    production = [path for path in root.rglob("*.py") if "validation" not in path.parts]
+    production = [path for path in root.rglob("*.py")
+                  if "validation" not in path.parts and "exemplars" not in path.parts]
     offenders = []
     for path in production:
         for node in ast.walk(ast.parse(path.read_text())):
@@ -43,17 +46,30 @@ def test_source_has_no_type_annotations():
     assert offenders == []
 
 
-def test_matplotlib_is_confined_to_plotting_package():
+def test_core_matplotlib_is_confined_to_plotting_package():
     root = Path(__file__).parents[1]
     offenders = []
     for folder in ("prism", "scripts"):
         for path in (root / folder).rglob("*.py"):
-            if "plotting" in path.parts:
+            if "plotting" in path.parts or (
+                folder == "prism" and "exemplars" in path.parts
+            ):
                 continue
             text = path.read_text()
             if "matplotlib" in text or "plt." in text or "savefig" in text:
                 offenders.append(path)
     assert offenders == []
+
+
+def test_core_import_does_not_load_optional_simulator_or_plotting():
+    result = subprocess.run(
+        [sys.executable, "-c",
+         "import sys; import prism; "
+         "assert 'skeleton_lab' not in sys.modules; "
+         "assert 'matplotlib' not in sys.modules"],
+        capture_output=True, text=True,
+    )
+    assert result.returncode == 0, result.stderr
 
 
 def test_accelerometer_validation_is_not_packaged():

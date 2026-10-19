@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "prism-smm"
-version = "0.4.2.post2"
+version = "0.1.0"
 description = "Interpretable measurements of stereotypical motion and synthetic profile exemplars"
 readme = "README.md"
 requires-python = ">=3.11,<3.13"
@@ -63,10 +63,7 @@ exclude = ["tests*", "scripts*", "tools*"]
 
 [tool.setuptools.package-data]
 "prism.exemplars" = [
-  "assets/specs/*.json",
-  "assets/reference/*",
-  "assets/reference/records/*.json",
-  "assets/reference/query_example/*"
+  "assets/specs/*.json"
 ]
 
 [tool.pytest.ini_options]
