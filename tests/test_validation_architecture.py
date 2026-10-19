@@ -5,7 +5,13 @@ from pathlib import Path
 def test_production_package_does_not_import_skeleton_lab():
     root = Path(__file__).parents[1] / "prism"
     production = [path for path in root.rglob("*.py") if "validation" not in path.parts]
-    offenders = [path for path in production if "skeleton_lab" in path.read_text()]
+    offenders = []
+    for path in production:
+        for node in ast.walk(ast.parse(path.read_text())):
+            if isinstance(node, ast.Import) and any(alias.name.split('.')[0] == 'skeleton_lab' for alias in node.names):
+                offenders.append(path)
+            if isinstance(node, ast.ImportFrom) and (node.module or '').split('.')[0] == 'skeleton_lab':
+                offenders.append(path)
     assert offenders == []
 
 

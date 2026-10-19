@@ -1,0 +1,20 @@
+{
+  "toy_conditions": 32,
+  "toy_pairs": 24,
+  "toy_max_relative_match_errors": {
+    "match_error_intensity": 2.220446049250313e-16,
+    "match_error_extent": 2.220446049250313e-16,
+    "match_error_frequency": 1.677989969195437e-10
+  },
+  "toy_all_irregular_ps_below_matched_baseline": true,
+  "rendered_candidate_pairs": 18,
+  "rendered_matched_pairs": 4,
+  "rendered_distinct_matched_metric_signatures": 2,
+  "rendered_matched_positive_ps_drops": 4,
+  "rendered_matched_median_ps_drop": 0.23082215933929795,
+  "compensation_all_pure_controls_above_irregular_ps": true,
+  "compensation_pure_ps_range": [
+    0.931014930120816,
+    0.9491116462583004
+  ]
+}

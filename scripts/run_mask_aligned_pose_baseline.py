@@ -1,6 +1,3 @@
-#!/usr/bin/env python3
-"""Run a pose baseline on crops derived from the frozen DAM4SAM masks."""
-
 import argparse
 
 from prism.validation.pose_baseline import run_pose_baseline

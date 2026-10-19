@@ -1,0 +1,9 @@
+numpy==1.26.4
+scipy==1.17.0
+pandas==2.2.3
+opencv-python-headless==4.10.0.84
+ripser==0.6.15
+scikit-learn==1.8.0
+imageio==2.38.1
+imageio-ffmpeg==0.6.0
+skeleton-lab @ git+https://github.com/vik1000-coder/skeleton-lab.git@207c9ad39f43163739f96a2eb0467f2e5d466ef4

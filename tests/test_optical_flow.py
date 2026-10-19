@@ -8,7 +8,7 @@ def test_torso_centering_removes_bulk_translation_but_retains_limb_motion():
     mask[10:70, 15:45] = True
     flow = np.zeros((80, 60, 2), dtype=np.float32)
     flow[..., 0][mask] = 2.0
-    # Extra motion in the lateral limb regions, outside the central torso core.
+
     flow[20:50, 15:20, 0] += 4.0
     flow[20:50, 40:45, 0] -= 4.0
     settings = OpticalFlowSettings(

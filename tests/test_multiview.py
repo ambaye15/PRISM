@@ -2,7 +2,7 @@ import numpy as np
 
 from prism.validation.multiview.geometry import look_at_camera, project, triangulate_sequence
 from prism.validation.multiview.measurements import estimate_frequency
-from prism.validation.multiview.noninferiority import (
+from prism.validation.multiview.geometry import (
     camera_pool,
     dominant_motion_axis,
     projected_motion_fraction,

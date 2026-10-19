@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 import argparse
 import json
 from pathlib import Path
@@ -31,7 +30,7 @@ def find_array(bundle):
 
 
 def simulate_array(bundle):
-    """Regenerate world joints from an older bundle that lacks 3D export."""
+
     spec_path = bundle / "spec.json"
     if not spec_path.is_file():
         raise FileNotFoundError(str(bundle) + ": spec.json is unavailable")
