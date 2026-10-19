@@ -18,7 +18,7 @@ class TopologySettings:
     welch_nyquist_fraction = field(0.40)
     compute_h1 = field(True)
 
-    flow_lag_profile_power = field(1) #Make 2 for squared power
+    flow_lag_profile_power = field(2) # make 1 for linear
 
 def validate_sequence(masks, timestamps):
     masks = np.asarray(masks)

@@ -5,11 +5,11 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
-from .config import BEHAVIORS, METRICS, FPS, REFERENCE_DIR, manifest
+from .config import BEHAVIORS, METRICS, FPS, manifest
 from .model import predict_parameters
 
 
-def nearest(behavior, target, top_k=3, *, results_dir=None):
+def nearest(behavior, target, top_k=3, *, results_dir):
     if behavior not in BEHAVIORS:
         raise ValueError(f"Unsupported behavior: {behavior}")
     target = np.asarray(target, float)
@@ -20,7 +20,7 @@ def nearest(behavior, target, top_k=3, *, results_dir=None):
         raise ValueError("At least one finite metric is required")
     if top_k < 1:
         raise ValueError("top_k must be positive")
-    root = Path(results_dir) if results_dir is not None else REFERENCE_DIR
+    root = Path(results_dir)
     manifest(root)
     data = pd.read_csv(root/"library_and_test.csv")
     library = data[(data.split == "library") & (data.status == "ok") &
@@ -57,13 +57,13 @@ def write_video(frames, path, title, details):
             writer.append_data(np.asarray(canvas))
 
 
-def query(behavior, target, out, *, results_dir=None, method="both", top_k=3,
+def query(behavior, target, out, *, results_dir, method="both", top_k=3,
           max_distance=.35, no_video=False, seed=7070, profile_power=None):
     if method not in {"retrieval", "neural", "both"}:
         raise ValueError("method must be retrieval, neural or both")
     if max_distance < 0 or not np.isfinite(max_distance):
         raise ValueError("max_distance must be finite and nonnegative")
-    root = Path(results_dir) if results_dir is not None else REFERENCE_DIR
+    root = Path(results_dir)
     metadata = manifest(root)
     power = metadata["flow_lag_profile_power"]
     if profile_power is not None and profile_power != power:

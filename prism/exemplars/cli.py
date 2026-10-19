@@ -6,7 +6,7 @@ from pathlib import Path
 def main(argv=None):
     parser = argparse.ArgumentParser(description="PRISM profile-conditioned synthetic exemplars")
     commands = parser.add_subparsers(dest="command",required=True)
-    for name in ["init-reference","library","pilot","train","decode","summarize","illustrate","runtime"]:
+    for name in ["library","pilot","train","decode","summarize","illustrate","runtime"]:
         p = commands.add_parser(name)
         p.add_argument("--results-dir", type=Path, default=Path("results/exemplars"))
         if name in {"library","pilot","runtime"}:
@@ -24,9 +24,7 @@ def main(argv=None):
             p.add_argument("--child",help=argparse.SUPPRESS)
     for name in ["query","validate"]:
         p = commands.add_parser(name)
-        source = p.add_mutually_exclusive_group(required=True)
-        source.add_argument("--reference",action="store_true",help="Use archived mean-distance reference assets")
-        source.add_argument("--results-dir",type=Path)
+        p.add_argument("--results-dir",type=Path,required=True)
         if name == "query":
             p.add_argument("--behavior",choices=("body_rocking","arm_flapping","hand_flapping"),required=True)
             p.add_argument("--profile",type=float,nargs=4,metavar=("I","E","F","PS"),required=True)
@@ -50,11 +48,6 @@ def main(argv=None):
 
 
 def dispatch(args):
-    from .config import REFERENCE_DIR
-    if args.command == "init-reference":
-        from .config import initialize_reference
-        return {"results_dir":str(initialize_reference(args.results_dir)),
-                "flow_lag_profile_power":1,"source":"Archived reference assets"}
     if args.command == "library":
         from .experiment import run_library
         frame = run_library(args.results_dir,args.workers,args.lag_profile_power,args.force)
@@ -89,12 +82,12 @@ def dispatch(args):
     elif args.command == "query":
         from .query import query
         return query(args.behavior,args.profile,args.out,
-            results_dir=REFERENCE_DIR if args.reference else args.results_dir,
+            results_dir=args.results_dir,
             method=args.method,top_k=args.top_k,max_distance=args.max_distance,
             no_video=args.no_video,seed=args.seed,profile_power=args.lag_profile_power)
     elif args.command == "validate":
         from .validate import validate
-        result = validate(REFERENCE_DIR if args.reference else args.results_dir)
+        result = validate(args.results_dir)
         if args.out:
             args.out.parent.mkdir(parents=True,exist_ok=True)
             args.out.write_text(json.dumps(result,indent=2))

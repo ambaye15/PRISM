@@ -5,7 +5,7 @@ import numpy as np
 import pandas as pd
 
 from .config import (BEHAVIORS, METRICS, PARAMETERS, LOWER, UPPER,
-                     REFERENCE_DIR, csv_hash, manifest, scales_for)
+                     csv_hash, manifest, scales_for)
 
 
 def inputs(frame):
@@ -98,13 +98,13 @@ def train_decoder(results_dir):
     return metadata
 
 
-def predict_parameters(behavior, target, *, results_dir=None):
+def predict_parameters(behavior, target, *, results_dir):
     if behavior not in BEHAVIORS:
         raise ValueError(f"Unsupported behavior: {behavior}")
     target = np.asarray(target, float)
     if target.shape != (4,) or not np.isfinite(target).all():
         raise ValueError("The neural decoder requires four finite measurements")
-    root = Path(results_dir) if results_dir is not None else REFERENCE_DIR
+    root = Path(results_dir)
     decoder = PortableDecoder.load(root)
     x = np.r_[target, [float(behavior == b) for b in BEHAVIORS]][None]
     raw = decoder.predict(x)[0]

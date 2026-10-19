@@ -7,7 +7,6 @@ import numpy as np
 
 ASSET_DIR = Path(__file__).resolve().parent / "assets"
 SPEC_DIR = ASSET_DIR / "specs"
-REFERENCE_DIR = ASSET_DIR / "reference"
 BEHAVIORS = ["body_rocking", "arm_flapping", "hand_flapping"]
 DRIVES = {"body_rocking": "rock", "arm_flapping": "flap", "hand_flapping": "flap"}
 METRICS = ["intensity", "extent", "frequency", "ps"]
@@ -60,7 +59,7 @@ def signature(power):
 def manifest(results_dir):
     path = Path(results_dir)/"experiment.json"
     if not path.is_file():
-        raise ValueError(f"Missing {path}. Run init-reference or library first.")
+        raise ValueError(f"Missing {path}. Run library first.")
     data = json.loads(path.read_text())
     if data.get("flow_lag_profile_power") not in (1, 2):
         raise ValueError("Experiment must explicitly declare lag profile power 1 or 2")
@@ -84,10 +83,3 @@ def workspace(results_dir, profile_power=None):
     return out, data
 
 
-def initialize_reference(results_dir):
-    import shutil
-    out = Path(results_dir).resolve()
-    if out.exists() and any(out.iterdir()):
-        raise ValueError("init-reference requires an empty or new results directory")
-    shutil.copytree(REFERENCE_DIR, out, dirs_exist_ok=True)
-    return out
