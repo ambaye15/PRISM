@@ -1,10 +1,3 @@
-"""Correlation summaries with participant-clustered uncertainty.
-
-The functions in this module are shared by real-video validation baselines.
-They operate on paired, finite measurements only and resample participants as
-the independent sampling units.
-"""
-
 import numpy as np
 import pandas as pd
 from scipy import stats

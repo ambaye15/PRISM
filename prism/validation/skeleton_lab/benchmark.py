@@ -1,6 +1,3 @@
-"""Generate and run a multi-behavior PRISM nuisance benchmark."""
-
-
 import json
 from pathlib import Path
 
@@ -19,7 +16,7 @@ from .stabilization import estimate_background_warps, stabilize_sequence
 
 
 class Behavior:
-    """Configuration for one synthetic movement geometry."""
+
 
     __slots__ = (
         "name",
@@ -85,7 +82,7 @@ def _payload(behavior , frequency , duration , amplitude_scale ,
     payload["name"] = (
         f"{behavior.name}_f{frequency:g}_T{duration:g}_A{amplitude_scale:g}_seed{seed}"
     )
-    # Clean physical motion: nuisance is added in explicitly labeled benchmark conditions.
+
     payload["drives"][0]["amplitude"]["value"] = 0.0
     payload["nuisance"]["sway"]["enabled"] = False
     payload["nuisance"]["micro_motion"]["enabled"] = False
@@ -100,12 +97,12 @@ def generate_benchmark(
     amplitude_scales   = (0.6, 1.0, 1.4),
     seeds   = (0, 1, 2),
 )  :
-    """Create truth-only bundles and a matched analysis-condition manifest."""
+
     output_root.mkdir(parents=True, exist_ok=True)
     bundles_root = output_root / "bundles"
     rows   = []
 
-    # Clean factorial cells establish construct validity and duration breakdown.
+
     for behavior in BEHAVIORS:
         for frequency in frequencies:
             for duration in durations:
@@ -125,7 +122,7 @@ def generate_benchmark(
                             "match_id": payload["name"],
                         })
 
-    # One-factor perturbations use a fixed, well-estimable eight-second motion.
+
     nuisance_ladders = {
         "fps_keep_fraction": (0.25, 0.5, 0.75),
         "spatial_scale": (0.25, 0.5, 0.75),
@@ -160,8 +157,8 @@ def generate_benchmark(
                         nuisance: level,
                     })
 
-            # Simulator-side camera perturbations need new bundles because they
-            # alter the actual projection, rather than post-processing pixels.
+
+
             camera_ladders = {
                 "camera_azimuth_deg": (30.0, 60.0, 90.0),
                 "camera_elevation_deg": (-15.0, 20.0, 40.0),
@@ -202,7 +199,9 @@ def run_benchmark(manifest_path , output_csv , max_dimension  = 256,
                   only_family    = None, resume  = True,
                   camera_correction  = "none",
                   only_nuisances     = None)  :
-    manifest = pd.read_csv(manifest_path)
+    output_csv = Path(output_csv)
+    source_manifest = pd.read_csv(manifest_path)
+    manifest = source_manifest.copy()
     if only_family is not None:
         manifest = manifest[manifest["family"] == only_family].reset_index(drop=True)
     if only_nuisances:
@@ -256,13 +255,13 @@ def run_benchmark(manifest_path , output_csv , max_dimension  = 256,
                 frames, masks, effective_fps, dimension, n_points,
                 flow_output=flow_output,
             ))
-            row["analysis_error"] = ""
+            row.setdefault("analysis_error", "")
         except (ValueError, RuntimeError) as error:
             row["analysis_error"] = str(error)
         row["effective_fps"] = effective_fps
         row["true_cycles"] = float(condition.frequency_truth_hz * condition.duration_sec)
         rows.append(row)
-        # A run can take hours; every completed condition is a safe checkpoint.
+
         output_csv.parent.mkdir(parents=True, exist_ok=True)
         pd.DataFrame(rows).to_csv(output_csv, index=False)
     result = pd.DataFrame(rows)

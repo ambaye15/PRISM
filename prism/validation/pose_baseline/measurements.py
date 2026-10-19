@@ -1,5 +1,3 @@
-"""Motion summaries from confidence-filtered, mask-aligned pose tracks."""
-
 import numpy as np
 from scipy.ndimage import median_filter
 
@@ -8,7 +6,7 @@ COCO_TORSO = (5, 6, 11, 12)
 
 
 def interpolate_short_gaps(xy, confidence, threshold=0.5, max_gap=2):
-    """Linearly interpolate bounded joint gaps no longer than max_gap frames."""
+
     xy = np.asarray(xy, dtype=np.float64).copy()
     confidence = np.asarray(confidence, dtype=np.float64).copy()
     frames, joints = confidence.shape
@@ -72,14 +70,16 @@ def measure_pose_bout(
     camera_translations=None,
     pair_valid=None,
     timestamps=None,
+    pair_heights=None,
+    return_pair_indices=False,
 ):
-    """Compute total, torso-translation, and torso-relative pose motion.
 
-    Motion is evaluated only on adjacent frame pairs belonging to the annotated
-    core interval. Speeds are expressed in tracked mask heights per second.
-    The spatial summary is computed within each frame pair and the temporal
-    median is used for the bout summary, matching PRISM's aggregation design.
-    """
+
+
+
+
+
+
     xy = np.asarray(xy, dtype=np.float64)
     confidence = np.asarray(confidence, dtype=np.float64)
     masks = np.asarray(masks, dtype=bool)
@@ -118,6 +118,8 @@ def measure_pose_bout(
     )
     heights = mask_heights(masks, mask_valid)
 
+    total_indices = []
+    torso_pair_indices = []
     total_median = []
     total_p75 = []
     torso_speed = []
@@ -144,7 +146,8 @@ def measure_pose_bout(
         if pair_valid is not None and not pair_valid[index]:
             continue
         expected_pairs += 1
-        scale = 0.5 * (heights[index] + heights[index + 1])
+        scale = (pair_heights[index] if pair_heights is not None
+                 else 0.5 * (heights[index] + heights[index + 1]))
         if not np.isfinite(scale) or scale <= 1:
             continue
 
@@ -172,6 +175,7 @@ def measure_pose_bout(
         )
         multiplier = 1.0 / (float(scale) * delta_time)
         speed = np.linalg.norm(displacement[keep], axis=1) * multiplier
+        total_indices.append(index)
         total_median.append(float(np.median(speed)))
         total_p75.append(float(np.percentile(speed, 75)))
 
@@ -187,6 +191,7 @@ def measure_pose_bout(
         ) * multiplier
         articulated_median.append(float(np.median(residual)))
         articulated_p75.append(float(np.percentile(residual, 75)))
+        torso_pair_indices.append(index)
         torso_valid_pairs += 1
 
     if expected_pairs == 0 or len(total_median) == 0:
@@ -218,4 +223,10 @@ def measure_pose_bout(
             "pose_torso_valid_pair_count": torso_valid_pairs,
             "pose_torso_valid_pair_fraction": torso_valid_pairs / expected_pairs,
         })
+    if return_pair_indices:
+        result["total_pair_indices"] = total_indices
+        result["torso_pair_indices"] = torso_pair_indices
+        result["total_pair_values"] = total_p75
+        result["articulated_pair_values"] = articulated_p75
+        result["torso_pair_values"] = torso_speed
     return result

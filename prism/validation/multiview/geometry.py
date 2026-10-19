@@ -6,7 +6,7 @@ from .measurements import center_trajectory
 
 
 def load_trajectory(path):
-    """Load one exported Skeleton Lab 3D trajectory."""
+
     data = np.load(path, allow_pickle=True)
     keys = set(data.files)
     joint_key = next(
@@ -37,7 +37,7 @@ def load_trajectory(path):
 
 
 def camera_pool():
-    """Predeclared candidate deployment views used for view selection."""
+
     views = []
     for elevation in (0.0, 20.0):
         for azimuth in np.arange(0.0, 360.0, 30.0):
@@ -46,7 +46,7 @@ def camera_pool():
 
 
 def dominant_motion_axis(points):
-    """Principal axis of root-centered three-dimensional velocity."""
+
     centered = center_trajectory(points)
     velocity = np.diff(centered, axis=0).reshape(-1, 3)
     velocity = velocity[np.isfinite(velocity).all(axis=1)]
@@ -56,7 +56,7 @@ def dominant_motion_axis(points):
 
 
 def projected_motion_fraction(axis, camera):
-    """Fraction of the dominant 3D motion axis visible in the image plane."""
+
     axis = np.asarray(axis, dtype=float)
     axis /= np.linalg.norm(axis)
     viewing_direction = np.asarray(camera["rotation"], dtype=float)[2]

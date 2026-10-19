@@ -1,9 +1,22 @@
 from pathlib import Path
 
 import numpy as np
+from string import ascii_lowercase
+from matplotlib.transforms import ScaledTranslation
 
+def label_panels(fig, axes, fmt='({})', inside=False, dx=-0.35, dy=0.15, **kw):
 
-def _plot_diagram(axis, diagram, title):
+    style = dict(fontsize=11, fontweight='bold', va='bottom', ha='left')
+    style.update(kw)
+    for i, ax in enumerate(np.atleast_1d(axes).ravel()):
+        letter = fmt.format(ascii_lowercase[i])
+        if inside:
+            ax.text(0.02, 0.98, letter, transform=ax.transAxes, **{**style, 'va': 'top'})
+        else:
+            offset = ScaledTranslation(dx, dy, fig.dpi_scale_trans)
+            ax.text(0.0, 1.0, letter, transform=ax.transAxes + offset, **style)
+
+def _plot_diagram(axis, diagram):
     if diagram.size:
         persistence = diagram[:, 1] - diagram[:, 0]
         upper = max(float(diagram.max()) * 1.06, 1e-6)
@@ -31,12 +44,12 @@ def _plot_diagram(axis, diagram, title):
     else:
         axis.plot([0, 1], [0, 1], "--", color="0.5", linewidth=1)
         axis.text(0.5, 0.35, "No finite H1 classes", ha="center")
-    axis.set(title=title, xlabel="Birth", ylabel="Death")
+    axis.set(xlabel="Birth", ylabel="Death")
     axis.set_aspect("equal", adjustable="box")
     axis.grid(alpha=0.2)
 
 
-def _plot_pca(axis, coordinates, ratios, times, title, retained_positions=None):
+def _plot_pca(axis, coordinates, times, retained_positions=None):
     if retained_positions is None:
         retained_positions = np.arange(len(coordinates))
     for index in range(len(coordinates) - 1):
@@ -76,8 +89,7 @@ def _plot_pca(axis, coordinates, ratios, times, title, retained_positions=None):
         label="end",
         zorder=3,
     )
-    pc1 = 100 * ratios[0] if ratios else 0.0
-    pc2 = 100 * ratios[1] if len(ratios) > 1 else 0.0
+
     axis.set_aspect("equal", adjustable="datalim")
     axis.set_xticks([])
     axis.set_yticks([])
@@ -91,33 +103,30 @@ def plot_topology_diagnostic(result, summary, output, title):
     import matplotlib.pyplot as plt
 
     figure, axes = plt.subplots(1, 3, figsize=(15, 4))
-    starts = result["start_times_sec"]
-    retained = np.flatnonzero(result["density_keep_mask"])
-    scale = summary["scale"]
+    starts = result["normalized_start_times_sec"]
+    retained = np.flatnonzero(result["sphere_valid_mask"])
     normalized = summary["normalized"]
 
+    axes[0].imshow(
+            result["normalized_distance"], cmap="magma", origin="lower", vmin=0, vmax=2
+        )
+
     second = _plot_pca(
-        axes[0],
+        axes[1],
         result["normalized_pca"],
-        normalized["pc_variance_ratio"],
         starts,
-        "Centered sphere PCA",
         retained,
     )
-    figure.colorbar(second, ax=axes[0], label="Window start (s)")
+    figure.colorbar(second, ax=axes[1], label="Window start (s)")
     _plot_diagram(
-        axes[1],
+        axes[2],
         result["normalized_diagram"],
-        f"Normalized H1 (PS={normalized.get('periodicity_score', 0):.3f})",
     )
-    axes[2].imshow(
-        result["normalized_distance"], cmap="magma", origin="lower", vmin=0, vmax=2
-    )
-    axes[2].set(title="Sphere-normalized distance", xlabel="Window", ylabel="Window")
 
     figure.suptitle(f"{title}",fontsize=12)
-      
     figure.tight_layout()
+    label_panels(figure, axes)
+
     path = Path(output) / "topology_diagnostic.png"
     figure.savefig(path, dpi=180, bbox_inches="tight")
     plt.close(figure)

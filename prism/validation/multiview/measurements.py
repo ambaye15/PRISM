@@ -62,15 +62,15 @@ def estimate_frequency(points, fps, minimum_hz=0.2, maximum_hz=5.0):
     if not len(peaks):
         index = int(np.nanargmin(smooth))
     else:
-        # Recurrence minima also occur at integer multiples of the period.
-        # Select the earliest peak whose prominence is at least one quarter of
-        # the strongest recurrence peak, rather than selecting the deepest
-        # (often a late harmonic) minimum.
+
+
+
+
         strong = peaks[
             properties["prominences"] >= 0.25 * properties["prominences"].max()
         ]
         index = int(strong[0])
-    # Quadratic interpolation removes integer-lag frequency quantization.
+
     refined = float(lags[index])
     if 0 < index < len(curve) - 1:
         left, middle, right = smooth[index - 1:index + 2]

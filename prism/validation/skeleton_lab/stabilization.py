@@ -1,12 +1,9 @@
-"""Camera-motion estimation and joint frame/mask stabilization."""
-
-
 import cv2
 import numpy as np
 
 
 class StabilizationDiagnostics:
-    """Quality-control values from background camera registration."""
+
 
     __slots__ = (
         "method",
@@ -54,12 +51,7 @@ def estimate_background_warps(
     max_rotation_deg  = 8.0,
     max_scale_change  = 0.08,
 )   :
-    """Estimate warps mapping each frame into frame-zero coordinates.
 
-    Features are detected only outside a dilated union of the subject masks.
-    Pairwise similarity transforms are estimated with RANSAC and accumulated.
-    Unreliable pairs use the identity transform rather than subject motion.
-    """
     frames = np.asarray(frames)
     masks = np.asarray(masks, dtype=bool)
     if len(frames) != len(masks) or len(frames) < 2:
@@ -125,8 +117,8 @@ def estimate_background_warps(
         translations.append(translation)
         rotations.append(abs(rotation))
         scales.append(scale_change)
-        # pair maps frame i -> i+1. Invert it, then compose with the
-        # already-known mapping from frame i -> reference frame zero.
+
+
         warps.append(warps[-1] @ np.linalg.inv(pair))
 
     diagnostics = StabilizationDiagnostics(
@@ -145,7 +137,7 @@ def stabilize_sequence(
     masks ,
     warps_to_reference ,
 )   :
-    """Apply the same source-to-reference affine warps to frames and masks."""
+
     frames = np.asarray(frames)
     masks = np.asarray(masks, dtype=bool)
     warps = np.asarray(warps_to_reference, dtype=np.float64)

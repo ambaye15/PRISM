@@ -1,6 +1,3 @@
-"""Bundle-level and sweep-level analysis."""
-
-
 import json
 from pathlib import Path
 

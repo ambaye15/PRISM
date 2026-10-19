@@ -5,12 +5,6 @@ from .._records import field, record
 
 @record
 class TopologySettings:
-    """Parameters for one mask sequence.
-
-    ``d=23`` gives 24 mask samples per sliding-window point. If ``period_sec``
-    is supplied it is used directly. Otherwise PRISM uses the lag profile of
-    the mask self-distance matrix. PC-score Welch is retained as an ablation.
-    """
 
     d = field(23)
     n_points = field(300)
@@ -22,9 +16,9 @@ class TopologySettings:
     frequency_method = field("lagged_ssm")
     welch_components = field(3)
     welch_nyquist_fraction = field(0.40)
-    density_k = field(20)
-    density_retain_fraction = field(0.80)
     compute_h1 = field(True)
+
+    flow_lag_profile_power = field(2)
 
 def validate_sequence(masks, timestamps):
     masks = np.asarray(masks)
@@ -85,13 +79,7 @@ def mask_geometry(masks):
 
 
 def framewise_rms_extent(masks, valid_mask=None, minimum_frames=8):
-    """RMS radius of the framewise binary-mask orbit.
 
-    Empty or invalid frames are omitted. Binary Euclidean distances are
-    normalized by the square root of the median observed mask area, so the
-    result is expressed relative to apparent body scale. The pairwise-distance
-    identity is used to avoid constructing an explicit centroid image.
-    """
     masks = np.asarray(masks)
     if masks.ndim == 4 and masks.shape[1] == 1:
         masks = masks[:, 0]

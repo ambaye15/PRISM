@@ -179,7 +179,7 @@ def fit_log_calibration(train_x, train_y, test_x):
 
 
 def cross_validated_calibration(frame):
-    """Calibrate within behavior while holding out simulation seeds."""
+
     frame = collapse_random_views(frame).copy()
     for measure, target in (
         ("intensity", "intensity_target"),
@@ -294,7 +294,7 @@ def construct_summary(frame, output_root, bootstrap_replicates=2000,
 
 
 def irregular_trajectory(points, fps, level, seed):
-    """Add controlled cycle timing, amplitude, and shape irregularity."""
+
     points = np.asarray(points, dtype=float)
     if level <= 0:
         return points.copy()
@@ -335,8 +335,8 @@ def regularity_rows(input_path, levels, sigma_px=1.0,
     input_path = Path(input_path)
     paths = sorted(input_path.rglob("*.npz")) if input_path.is_dir() else [input_path]
     if max_files is not None and max_files < len(paths):
-        # Cover the full sorted benchmark rather than taking only the first
-        # movement geometry.
+
+
         selected = np.linspace(0, len(paths) - 1, max_files, dtype=int)
         paths = [paths[index] for index in np.unique(selected)]
     rows = []

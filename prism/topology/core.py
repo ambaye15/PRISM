@@ -1,13 +1,13 @@
 import numpy as np
 
 from .._records import asdict
-from .embedding import knn_density_selection, sliding_window_distances
+from .embedding import sliding_window_distances
 from .masks import TopologySettings, longest_valid_run, require_nonempty_masks, validate_sequence
 from .period import estimate_period
 
 
 def pca_from_distances(distance, n_components = 3):
-    """Classical MDS, equivalent to PCA scores for Euclidean distances."""
+
     distance = np.asarray(distance, dtype=np.float64)
     squared = distance * distance
     gram = -0.5 * (
@@ -29,11 +29,7 @@ def pca_from_distances(distance, n_components = 3):
 
 
 def orbit_radius_from_distances(distance):
-    """RMS distance to the cloud centroid from a Euclidean distance matrix.
 
-    The identity ``r_rms^2 = mean_{i,j}(D_ij^2) / 2`` avoids choosing an
-    arbitrary coordinate system for the sliding-window point cloud.
-    """
     distance = np.asarray(distance, dtype=np.float64)
     if distance.ndim != 2 or distance.shape[0] != distance.shape[1]:
         raise ValueError("distance must be a square matrix")
@@ -43,7 +39,7 @@ def orbit_radius_from_distances(distance):
 
 
 def periodicity_score_from_diagram(diagram):
-    """Dominant-loop periodicity with a birth-weighted second-loop penalty."""
+
     diagram = np.asarray(diagram, dtype=np.float64)
     if diagram.size == 0:
         return 0.0
@@ -65,7 +61,7 @@ def periodicity_score_from_diagram(diagram):
     return float(first_term - second_term)
 
 def persistence_summary(distance, compute = True, *, normalized_cloud = False):
-    """Compute finite H1 persistence with Ripser."""
+
     empty = np.empty((0, 2), dtype=np.float64)
     distance = np.asarray(distance, dtype=np.float64)
     diameter = float(np.max(distance))
@@ -100,7 +96,7 @@ def persistence_summary(distance, compute = True, *, normalized_cloud = False):
     }, diagram
 
 def cycle_return_distance(distance, starts, period):
-    """Median distance between windows one period apart."""
+
     values = []
     tolerance = max(float(np.median(np.diff(starts))) * 1.5, 1e-8)
     for index, time in enumerate(starts):
@@ -111,7 +107,7 @@ def cycle_return_distance(distance, starts, period):
     return float(np.median(values)) if values else None
 
 def resolve_period(masks, timestamps, settings):
-    """Estimated or user-supplied period, with PCA scores behind the estimate."""
+
     if settings.period_sec is None:
         period, period_signals = estimate_period(masks, timestamps, settings)
         if period["period_sec"] is None:
@@ -130,7 +126,7 @@ def resolve_period(masks, timestamps, settings):
     return period, None
 
 def analyze_masks(masks, timestamps, *, valid_mask = None, settings = None):
-    """Complete analysis returning JSON-friendly summaries and NumPy arrays."""
+
     settings = settings or TopologySettings()
     masks, timestamps = validate_sequence(masks, timestamps)
     observed = masks.reshape(len(masks), -1).any(axis=1)
@@ -154,35 +150,12 @@ def analyze_masks(masks, timestamps, *, valid_mask = None, settings = None):
         n_points=settings.n_points,
     )
 
-    density = knn_density_selection(
-        cloud["scale_distance"],
-        k=settings.density_k,
-        retain_fraction=settings.density_retain_fraction,
-    )
 
-    # Density selection is defined on the complete, unnormalized scale cloud.
-    scale_keep = np.flatnonzero(density["keep_mask"])
-    starts = cloud["start_times_sec"][scale_keep]
-    scale = cloud["scale_distance"][np.ix_(scale_keep, scale_keep)]
-
-    # Zero-variation windows are absent from the sphere-normalized cloud.
-    # Convert the original density mask into indices for this reduced cloud.
+    starts = cloud["start_times_sec"]
+    scale = cloud["scale_distance"]
     sphere_valid = cloud["sphere_valid_mask"]
-    normalized_density_keep = density["keep_mask"][sphere_valid]
-    normalized_keep = np.flatnonzero(normalized_density_keep)
-
-    if len(normalized_keep) < 8:
-        raise ValueError(
-            "fewer than 8 sphere-normalized windows remain after "
-            "density selection"
-        )
-
-    normalized_starts = cloud["normalized_start_times_sec"][
-        normalized_keep
-    ]
-    normalized = cloud["normalized_distance"][
-        np.ix_(normalized_keep, normalized_keep)
-    ]
+    normalized_starts = cloud["normalized_start_times_sec"]
+    normalized = cloud["normalized_distance"]
 
     scale_pca, scale_ratio = pca_from_distances(scale)
     normalized_pca, normalized_ratio = pca_from_distances(
@@ -224,13 +197,13 @@ def analyze_masks(masks, timestamps, *, valid_mask = None, settings = None):
             "window_samples": settings.d + 1,
             "tau_sec": cloud["tau_sec"],
             "window_span_sec": cloud["window_span_sec"],
-            "n_points_before_filter": settings.n_points,
+            "n_points_requested": settings.n_points,
 
-            "n_scale_points_retained": len(scale_keep),
-            "n_normalized_points_before_density": int(
+            "n_scale_points_retained": len(starts),
+            "n_normalized_points_valid": int(
                 cloud["n_sphere_points"]
             ),
-            "n_normalized_points_retained": len(normalized_keep),
+            "n_normalized_points_retained": len(normalized_starts),
             "sphere_valid_fraction": float(
                 cloud["sphere_valid_fraction"]
             ),
@@ -241,15 +214,6 @@ def analyze_masks(masks, timestamps, *, valid_mask = None, settings = None):
                 "L2 sphere normalization after temporal image "
                 "centering; zero-variation windows excluded"
             ),
-        },
-        "density": {
-            k: v
-            for k, v in density.items()
-            if k not in {
-                "keep_mask",
-                "density",
-                "knn_radius",
-            }
         },
         "scale": {
             **scale_h1,
@@ -266,21 +230,15 @@ def analyze_masks(masks, timestamps, *, valid_mask = None, settings = None):
                 )
             ),
             "pre_sphere_norm_min": float(
-                cloud["pre_sphere_norm"][
-                    normalized_keep
-                ].min()
+                cloud["pre_sphere_norm"].min()
             ),
             "pre_sphere_norm_median": float(
                 np.median(
-                    cloud["pre_sphere_norm"][
-                        normalized_keep
-                    ]
+                    cloud["pre_sphere_norm"]
                 )
             ),
             "pre_sphere_norm_max": float(
-                cloud["pre_sphere_norm"][
-                    normalized_keep
-                ].max()
+                cloud["pre_sphere_norm"].max()
             ),
         },
     }
@@ -288,19 +246,17 @@ def analyze_masks(masks, timestamps, *, valid_mask = None, settings = None):
     return {
         "summary": summary,
 
-        # Backward-compatible scale-cloud timestamps.
+
         "start_times_sec": starts,
         "start_times_sec_all": cloud["start_times_sec"],
 
-        # Explicit normalized-cloud timestamps and validity map.
+
         "normalized_start_times_sec": normalized_starts,
         "normalized_start_times_sec_all": cloud[
             "normalized_start_times_sec"
         ],
         "sphere_valid_mask": sphere_valid,
 
-        "density_keep_mask": density["keep_mask"],
-        "density": density["density"],
         "scale_distance": scale,
         "normalized_distance": normalized,
         "scale_pca": scale_pca,

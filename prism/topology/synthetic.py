@@ -1,5 +1,3 @@
-"""Synthetic SAM-like masks for demonstrations and regression tests."""
-
 import numpy as np
 
 
@@ -13,7 +11,7 @@ def periodic_translation(
     jitter = 0.0,
     seed = 7,
 ):
-    """Disk following a closed periodic trajectory, with optional tracking jitter."""
+
     rng = np.random.default_rng(seed)
     times = np.arange(n_frames, dtype=float) / fps
     yy, xx = np.ogrid[:size, :size]
@@ -34,7 +32,7 @@ def amplitude_drift(
     fps = 10.0,
     period_sec = 2.0,
 ):
-    """Periodic motion whose excursion grows gradually through the recording."""
+
     times = np.arange(n_frames, dtype=float) / fps
     yy, xx = np.ogrid[:size, :size]
     masks = []
@@ -54,7 +52,7 @@ def aperiodic_random_walk(
     fps = 10.0,
     seed = 11,
 ):
-    """Smooth but nonperiodic motion used as a negative control."""
+
     rng = np.random.default_rng(seed)
     times = np.arange(n_frames, dtype=float) / fps
     steps = rng.normal(0.0, 0.9, size=(n_frames, 2))
@@ -77,7 +75,7 @@ def periodic_articulation(
     fps = 10.0,
     period_sec = 1.5,
 ):
-    """Stationary torso with two periodically moving arm-like components."""
+
     times = np.arange(n_frames, dtype=float) / fps
     yy, xx = np.ogrid[:size, :size]
     masks = []

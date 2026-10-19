@@ -4,7 +4,7 @@ from .masks import TopologySettings, mask_geometry, require_nonempty_masks, vali
 
 
 def _spectral_peak(signal, fps, settings, *, nfft_min=2048):
-    """Return an interpolated in-band Welch peak and its diagnostics."""
+
     try:
         from scipy.signal import welch
     except ImportError as error:
@@ -22,7 +22,7 @@ def _spectral_peak(signal, fps, settings, *, nfft_min=2048):
         detrend="linear",
         scaling="density",
     )
-   
+
     minimum_frequency = 1.0 / settings.max_period_sec
     maximum_frequency = min(
         1.0 / settings.min_period_sec,
@@ -46,7 +46,7 @@ def _spectral_peak(signal, fps, settings, *, nfft_min=2048):
             offset = float(np.clip(0.5 * (left - right) / denominator, -1.0, 1.0))
     spacing = float(frequencies[1] - frequencies[0])
     frequency = float(frequencies[peak] + offset * spacing)
-   
+
     native_half_width = max(1, int(np.ceil(nfft / max(len(signal), 1))))
     lo = max(0, peak - native_half_width)
     hi = min(len(power), peak + native_half_width + 1)
@@ -55,12 +55,7 @@ def _spectral_peak(signal, fps, settings, *, nfft_min=2048):
 
 
 def period_from_lagged_ssm(masks, timestamps, settings):
-    """Estimate frequency from the mean upper diagonals of mask self-distance.
-
-    For lag ``L``, the signal is ``s[L] = mean_i D(i, i + L)``. A periodic
-    mask trajectory produces a periodic lag profile without requiring any one
-    image coordinate to behave sinusoidally.
-    """
+    
     geometry = mask_geometry(masks)
     distance = np.asarray(geometry["body_distance"], dtype=np.float64)
     max_lag = len(distance) // 2
@@ -114,7 +109,7 @@ def period_from_lagged_ssm(masks, timestamps, settings):
 
 
 def mask_pca_scores(masks, n_components=3):
-    """Return leading PCA score time series without materializing pixel loadings."""
+
     geometry = mask_geometry(masks)
     gram = np.asarray(geometry["gram"], dtype=np.float64)
     row_mean = gram.mean(axis=1, keepdims=True)
@@ -134,7 +129,7 @@ def mask_pca_scores(masks, n_components=3):
 
 
 def period_from_welch(scores, timestamps, settings):
-    """Estimate one dominant period from the summed PC-score Welch spectrum."""
+
     try:
         from scipy.signal import welch
     except ImportError as error:
@@ -223,7 +218,7 @@ def period_from_welch(scores, timestamps, settings):
 
 
 def estimate_period(masks, timestamps, settings=None):
-    """Estimate period with the configured primary frequency estimator."""
+
     settings = settings or TopologySettings()
     masks, timestamps = validate_sequence(masks, timestamps)
     require_nonempty_masks(masks)

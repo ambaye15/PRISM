@@ -1,5 +1,3 @@
-"""Input/output helpers for standalone SAM-mask topology."""
-
 import json
 from pathlib import Path
 
@@ -32,12 +30,7 @@ def load_masks(
     fps = None,
     threshold = 0.5,
 ):
-    """Load masks from NPZ, NPY, or a directory of ordered mask images.
 
-    NPZ files may include ``timestamps_sec`` and ``mask_valid``.  If timestamps
-    are absent, ``fps`` is required.  Image directories accept PNG, TIFF, BMP,
-    or JPEG files sorted lexicographically.
-    """
     source = Path(path).expanduser().resolve()
     timestamps = None
     valid = None
@@ -111,7 +104,7 @@ def save_analysis(
     title = "SAM mask sliding-window topology",
     create_figure = True,
 ):
-    """Save summary JSON, numerical NPZ, and one diagnostic figure."""
+
     output = Path(output_dir).expanduser().resolve()
     output.mkdir(parents=True, exist_ok=True)
     summary = dict(result["summary"])

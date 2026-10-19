@@ -1,5 +1,3 @@
-"""Pose inference on crops derived from the tracked DAM4SAM mask."""
-
 import csv
 import json
 from pathlib import Path
@@ -74,7 +72,7 @@ class UltralyticsPose:
         return xy[selected], confidence[selected], float(scores[selected])
 
 
-def read_bout_inputs(episode_dir, source=None, videos_root=None):
+def read_bout_inputs(episode_dir, source=None, videos_root=None, require_video=True):
     episode_dir = Path(episode_dir)
     npz_path = episode_dir / "sam2_masks_fixed_crop.npz"
     summary_path = episode_dir / "subject_dino_summary.json"
@@ -85,7 +83,7 @@ def read_bout_inputs(episode_dir, source=None, videos_root=None):
     summary = json.loads(summary_path.read_text(encoding="utf-8"))
     raw_clip = Path(summary["source_cached_video"]).expanduser()
     video_start_frame = 0
-    if not raw_clip.is_file():
+    if not raw_clip.is_file() and require_video:
         source_video = None if source is None else source.get("source_video_path")
         if source_video is None or str(source_video).strip() in {"", "nan", "None"}:
             raise FileNotFoundError(
@@ -129,7 +127,7 @@ def number_or_none(value):
 
 
 def read_camera_corrections(path, pair_count):
-    """Read the exact corrections used by the frozen optical-flow analysis."""
+
     transforms = [None] * pair_count
     translations = [None] * pair_count
     flow_pair_valid = None

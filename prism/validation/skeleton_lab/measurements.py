@@ -1,6 +1,3 @@
-"""Adapters from Skeleton Lab arrays to the production PRISM API."""
-
-
 import numpy as np
 
 from prism.optical_flow import (
@@ -21,7 +18,7 @@ def optical_flow_intensity(
     fps ,
     flow_output=None,
 )         :
-    """Return the manuscript's torso-centered intensity and its ablations."""
+
     timestamps = np.arange(len(frames), dtype=np.float64) / float(fps)
     settings = OpticalFlowSettings(
         camera_correction="none",
@@ -75,7 +72,11 @@ def _topology_summary(
         n_points=n_points,
         frequency_method=method,
     )
-    return analyze_masks(masks, timestamps, settings=settings)["summary"]
+    from prism.topology.core import resolve_period
+    from prism.topology.masks import longest_valid_run
+    run = longest_valid_run(masks.reshape(len(masks), -1).any(axis=1))
+    period, _ = resolve_period(masks[run], timestamps[run], settings)
+    return {"period": period}
 
 
 def topology_measurements(
@@ -86,7 +87,7 @@ def topology_measurements(
     n_points  = 300,
     flow_output=None,
 )         :
-    """Return flow frequency/PS, framewise RMS extent, and frequency ablations."""
+
     timestamps = np.arange(len(masks), dtype=np.float64) / float(fps)
     flow_settings = OpticalFlowSettings(
         camera_correction="none",
@@ -99,56 +100,45 @@ def topology_measurements(
         flow_output = analyze_optical_flow_arrays(
             frames, masks, timestamps, settings=flow_settings
         )
-    states = flow_output["flow_states"]
-    settings = TopologySettings(
-        d=dimension,
-        n_points=n_points,
-        frequency_method="lagged_ssm",
-    )
-    flow = analyze_flow_states(
-        states["total"],
-        states["confidence"],
-        states["timestamps_sec"],
-        pair_indices=states["pair_indices"],
-        settings=settings,
-    )
-    period = flow["summary"]["period"]
-    extent = framewise_rms_extent(masks)
-    mask_primary = _topology_summary(
-        masks,
-        fps,
-        method="lagged_ssm",
-        dimension=dimension,
-        n_points=n_points,
-    )
-    welch = _topology_summary(
-        masks,
-        fps,
-        method="welch_pc",
-        dimension=dimension,
-        n_points=n_points,
-    )
-    return {
-        "prism_extent": extent["extent_frame_rms"],
-        "prism_periodicity": flow["summary"]["normalized"]["periodicity_score"],
-        "prism_frequency_hz": period["frequency_hz"],
-        "prism_period_sec": period["period_sec"],
-        "flow_spectral_concentration": period.get("spectral_concentration"),
-        "prism_frequency_lagged_ssm_hz": mask_primary["period"]["frequency_hz"],
-        "prism_frequency_welch_hz": welch["period"]["frequency_hz"],
-        "lagged_ssm_spectral_concentration": mask_primary["period"].get(
-            "spectral_concentration"
-        ),
-        "welch_spectral_concentration": welch["period"].get(
-            "spectral_concentration"
-        ),
-        "welch_components": welch["period"].get("n_components_used"),
-        "welch_explained_variance": welch["period"].get("pc_variance_ratio"),
-    }
+    result = {}
+    errors = []
+    try:
+        extent = framewise_rms_extent(masks)
+        result["prism_extent"] = extent["extent_frame_rms"]
+    except (ValueError, RuntimeError) as error:
+        errors.append("extent: " + str(error))
+    try:
+        states = flow_output["flow_states"]
+        settings = TopologySettings(d=dimension, n_points=n_points,
+                                    frequency_method="lagged_ssm")
+        flow = analyze_flow_states(states["total"], states["confidence"],
+                                  states["timestamps_sec"],
+                                  pair_indices=states["pair_indices"], settings=settings)
+        period = flow["summary"]["period"]
+        result.update({"prism_frequency_hz": period["frequency_hz"],
+                       "prism_period_sec": period["period_sec"],
+                       "flow_spectral_concentration": period.get("spectral_concentration"),
+                       "prism_periodicity": flow["summary"]["normalized"].get("periodicity_score")})
+        errors.extend("periodicity: " + item["error"] for item in flow["summary"].get("issues", []))
+    except (ValueError, RuntimeError) as error:
+        errors.append("flow_frequency: " + str(error))
+    for method, column in [("lagged_ssm", "prism_frequency_lagged_ssm_hz"),
+                           ("welch_pc", "prism_frequency_welch_hz")]:
+        try:
+            baseline = _topology_summary(masks, fps, method=method,
+                                         dimension=dimension, n_points=n_points)
+            result[column] = baseline["period"]["frequency_hz"]
+        except (ValueError, RuntimeError) as error:
+            errors.append(method + ": " + str(error))
+    result["analysis_error"] = "; ".join(errors)
+    for column in ["prism_extent", "prism_periodicity", "prism_frequency_hz",
+                   "prism_frequency_lagged_ssm_hz", "prism_frequency_welch_hz"]:
+        result[column + "_available"] = result.get(column) is not None and np.isfinite(result[column])
+    return result
 
 
 def production_flow_output(frames, masks, fps):
-    """Compute the shared flow result once for intensity and topology."""
+
     timestamps = np.arange(len(frames), dtype=np.float64) / float(fps)
     settings = OpticalFlowSettings(
         camera_correction="none",

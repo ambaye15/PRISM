@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 
 import argparse
 import json
@@ -9,6 +8,20 @@ import numpy as np
 import pandas as pd
 from matplotlib.ticker import PercentFormatter
 from scipy.stats import spearmanr
+from string import ascii_lowercase
+from matplotlib.transforms import ScaledTranslation
+
+def label_panels(fig, axes, fmt='({})', inside=False, dx=-0.35, dy=0.15, **kw):
+
+    style = dict(fontsize=11, fontweight='bold', va='bottom', ha='left')
+    style.update(kw)
+    for i, ax in enumerate(np.atleast_1d(axes).ravel()):
+        letter = fmt.format(ascii_lowercase[i])
+        if inside:
+            ax.text(0.02, 0.98, letter, transform=ax.transAxes, **{**style, 'va': 'top'})
+        else:
+            offset = ScaledTranslation(dx, dy, fig.dpi_scale_trans)
+            ax.text(0.0, 1.0, letter, transform=ax.transAxes + offset, **style)
 
 MEASURES = {
     "intensity": ("intensity_truth_height_s", "prism_intensity"),
@@ -44,7 +57,7 @@ def _save(fig , stem )  :
 
 
 def plot_construct_recovery(clean , out )  :
-    """One small-multiple construct-recovery figure for every measurement."""
+
     behaviors = list(clean["behavior"].drop_duplicates())
     colors = plt.get_cmap("tab10").colors
     for measure, (truth, estimate) in MEASURES.items():
@@ -58,7 +71,7 @@ def plot_construct_recovery(clean , out )  :
                        color=colors[index % len(colors)], linewidths=0)
             if len(subset) > 2 and subset[truth].nunique() > 1 and subset[estimate].nunique() > 1:
                 rho = spearmanr(subset[truth], subset[estimate]).statistic
-                # A monotone-free linear guide is descriptive only; rho carries the inference.
+
                 slope, intercept = np.polyfit(subset[truth], subset[estimate], 1)
                 xx = np.linspace(subset[truth].min(), subset[truth].max(), 100)
                 ax.plot(xx, intercept + slope * xx, color="black", lw=1.4)
@@ -77,11 +90,12 @@ def plot_construct_recovery(clean , out )  :
                 ax.set_ylabel(DISPLAY[measure][1])
             ax.grid(alpha=.2)
         fig.suptitle(f"{DISPLAY[measure][0]}: recovery of the controlled construct", y=1.02)
+        label_panels(fig, axes)
         _save(fig, out / f"construct_recovery_{measure}")
 
 
 def plot_frequency_duration(duration , out )  :
-    """Duration sensitivity for both frequency estimators."""
+
     pooled = duration.groupby(["method", "duration_sec"], as_index=False).agg(
         median_relative_error=("median_relative_error", "median"),
         within_20_percent=("within_20_percent", "mean"),
@@ -104,11 +118,12 @@ def plot_frequency_duration(duration , out )  :
         ax.grid(alpha=.25)
         ax.legend(frameon=False)
     fig.suptitle("Frequency recovery improves with bout duration")
+    label_panels(fig, axes)
     _save(fig, out / "frequency_accuracy_by_duration")
 
 
 def plot_individual_robustness(summary , out )  :
-    """One uncapped robustness profile per measurement, with failures explicit."""
+
     for measure, title in ROBUST_DISPLAY.items():
         subset = summary.loc[summary.measure == measure].copy()
         subset["label"] = [f"{a}: {b:g}" for a, b in zip(subset.nuisance, subset.level)]
@@ -117,7 +132,7 @@ def plot_individual_robustness(summary , out )  :
         median = subset.median_relative_deviation.to_numpy(float)
         q90 = subset.q90_relative_deviation.to_numpy(float)
         valid = np.isfinite(median)
-        # log1p retains zero while allowing errors above 100% to remain visible.
+
         x_med = np.log1p(median[valid])
         x_q90 = np.log1p(q90[valid])
         fig, ax = plt.subplots(figsize=(8.7, max(7, .27 * len(subset))))
@@ -209,7 +224,7 @@ def main()  :
     construct_summary = pd.DataFrame(rows)
     construct_summary.to_csv(args.out / "construct_validity_summary.csv", index=False)
 
-    # Frequency performance as a function of bout length and observed cycles.
+
     duration_rows = []
     for method, column in (("Signed-flow lagged SSM", "prism_frequency_hz"),
                            ("PC1-3 Welch", "prism_frequency_welch_hz"),

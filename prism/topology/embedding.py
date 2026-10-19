@@ -4,7 +4,7 @@ from .masks import mask_geometry, require_nonempty_masks, validate_sequence
 
 
 def interpolation_operators(timestamps, start_times, d, tau_sec):
-    """Linear interpolation matrices, one per delay, from frames to windows."""
+
     n_frames = len(timestamps)
     rows = np.arange(len(start_times))
     operators = []
@@ -51,10 +51,6 @@ def sliding_window_distances(masks, timestamps, *, period_sec, d = 23, n_points 
     centered_dot = 0.5 * (centered_dot + centered_dot.T)
     centered_norms = np.maximum(np.diag(centered_dot), 0.0)
 
-    # A window with no temporal mask variation is the zero vector after
-    # temporal centering and therefore has no sphere normalization. Following
-    # the mathematical definition, exclude only those windows from the
-    # normalized cloud rather than rejecting the complete sequence.
     sphere_valid = np.isfinite(centered_norms) & (centered_norms > 1e-12)
 
     if sphere_valid.sum() < 8:
@@ -90,33 +86,4 @@ def sliding_window_distances(masks, timestamps, *, period_sec, d = 23, n_points 
         "sphere_valid_mask": sphere_valid,
         "n_sphere_points": int(sphere_valid.sum()),
         "sphere_valid_fraction": float(sphere_valid.mean()),
-    }
-
-
-def knn_density_selection(distance, *, k, retain_fraction):
-    """Optional pre-normalization kNN density selection."""
-    distance = np.asarray(distance, dtype=np.float64)
-    n = len(distance)
-    if distance.shape != (n, n) or n < 2 or k < 1:
-        raise ValueError("invalid distance matrix or k")
-    if not 0.0 < retain_fraction <= 1.0:
-        raise ValueError("retain_fraction must lie in (0,1]")
-    effective_k = min(k, n - 1)
-    work = distance.copy()
-    np.fill_diagonal(work, np.inf)
-    radius = np.median(np.partition(work, effective_k - 1, axis=1)[:, :effective_k], axis=1)
-    positive = radius[radius > 1e-12]
-    epsilon = max(float(np.median(positive)) * 1e-12, 1e-12) if len(positive) else 1e-12
-    density = 1.0 / (radius + epsilon)
-    target = n if retain_fraction == 1.0 else max(8, int(np.ceil(n * retain_fraction)))
-    indices = np.argsort(-density, kind="stable")[:target]
-    keep = np.zeros(n, dtype=bool)
-    keep[indices] = True
-    return {
-        "keep_mask": keep,
-        "density": density,
-        "knn_radius": radius,
-        "n_before": n,
-        "n_retained": int(keep.sum()),
-        "observed_retain_fraction": float(keep.mean()),
     }

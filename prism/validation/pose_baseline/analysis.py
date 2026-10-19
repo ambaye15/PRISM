@@ -1,5 +1,3 @@
-"""End-to-end mask-aligned pose baseline and agreement analysis."""
-
 import json
 from pathlib import Path
 
@@ -46,26 +44,36 @@ def run_pose_baseline(
     output_root = Path(output_root).expanduser().resolve()
     cache_root = output_root / "pose_tracks"
     cache_root.mkdir(parents=True, exist_ok=True)
-    estimator = UltralyticsPose(model=model, device=device, image_size=image_size)
+    estimator = None
 
     sources = features if limit is None else features.iloc[: int(limit)]
     rows = []
     for count, (_, source) in enumerate(sources.iterrows(), start=1):
         episode_id = str(source["episode_id"])
         cache_path = cache_root / (episode_id + ".npz")
-        row = {"episode_id": episode_id}
+        cache_metadata = cache_path.with_suffix('.json')
+        expected_cache = {"model":model,"image_size":image_size,"padding_fraction":padding_fraction}
+        use_cache = cache_path.is_file() and not force
+        if use_cache and cache_metadata.is_file():
+            use_cache = all(json.loads(cache_metadata.read_text()).get(key) == value for key, value in expected_cache.items())
+        row = {"episode_id": episode_id,
+               "pose_cache_status": "reused" if use_cache else "new"}
+
         try:
             inputs = read_bout_inputs(
                 runs_root / episode_id,
                 source=source,
                 videos_root=videos_root,
+                require_video=not use_cache,
             )
-            if cache_path.is_file() and not force:
+            if use_cache:
                 cached = np.load(cache_path)
                 xy = cached["xy"]
                 confidence = cached["confidence"]
                 overlap = cached["mask_box_iou"]
             else:
+                if estimator is None:
+                    estimator = UltralyticsPose(model=model, device=device, image_size=image_size)
                 xy, confidence, overlap = infer_bout_pose(
                     inputs, estimator, padding_fraction=padding_fraction
                 )
@@ -75,7 +83,12 @@ def run_pose_baseline(
                     confidence=confidence,
                     mask_box_iou=overlap,
                 )
+                cache_metadata.write_text(json.dumps(expected_cache,indent=2)+'\n')
+                row['pose_cache_status']='new'
 
+
+            if len(xy) != len(inputs['masks']) or xy.shape[1:] != (17,2):
+                raise ValueError('Cached pose shape differs from bout masks/COCO-17; rerun with --force')
             detected_frames = np.isfinite(confidence).any(axis=1)
             confident_landmarks = (
                 np.isfinite(confidence) & (confidence >= confidence_threshold)
@@ -90,7 +103,13 @@ def run_pose_baseline(
             timestamps = inputs["timestamps_sec"]
             differences = np.diff(timestamps)
             fps = 1.0 / float(np.median(differences[differences > 0]))
-            row.update(measure_pose_bout(
+            pairs = pd.read_csv(runs_root / episode_id / "optical_flow_frames.csv")
+            height_by_pair = np.full(len(xy) - 1, np.nan)
+            for _, pair in pairs.iterrows():
+                i = int(pair["frame_index"])
+                if 0 <= i < len(height_by_pair):
+                    height_by_pair[i] = pair.get("body_height_pixels", np.nan)
+            pose_result = measure_pose_bout(
                 xy,
                 confidence,
                 inputs["masks"],
@@ -103,7 +122,35 @@ def run_pose_baseline(
                 camera_translations=inputs["camera_translations"],
                 pair_valid=inputs["flow_pair_valid"],
                 timestamps=inputs["timestamps_sec"],
-            ))
+                pair_heights=height_by_pair,
+                return_pair_indices=True,
+            )
+            total_indices = pose_result.pop("total_pair_indices", [])
+            torso_indices = pose_result.pop("torso_pair_indices", [])
+            pose_values = {"flow_total_shared_pose_pairs": pose_result.pop("total_pair_values", []),
+                           "flow_residual_shared_pose_pairs": pose_result.pop("articulated_pair_values", []),
+                           "flow_torso_shared_pose_pairs": pose_result.pop("torso_pair_values", [])}
+            row.update(pose_result)
+            specifications = [
+                ("flow_total_shared_pose_pairs", "flow_pixel_p75_body_heights_per_sec", total_indices),
+                ("flow_residual_shared_pose_pairs", "flow_pixel_p75_torso_corrected_body_heights_per_sec", torso_indices),
+                ("flow_torso_shared_pose_pairs", "flow_torso_translation_body_heights_per_sec", torso_indices),
+            ]
+            for target, column, indices in specifications:
+                if column not in pairs:
+                    raise ValueError("Missing per-pair flow column: " + column)
+                ordered_pairs = pairs.set_index("frame_index").reindex(indices)
+                values = pd.to_numeric(ordered_pairs[column], errors="coerce")
+                valid_shared = np.isfinite(values.to_numpy())
+                pose_column = {"flow_total_shared_pose_pairs": "pose_total_motion_p75_mask_heights_per_sec",
+                               "flow_residual_shared_pose_pairs": "pose_articulated_motion_p75_mask_heights_per_sec",
+                               "flow_torso_shared_pose_pairs": "pose_torso_translation_speed_mask_heights_per_sec"}[target]
+                matching_pose = np.asarray(pose_values[target], dtype=float)
+                row[pose_column] = float(np.median(matching_pose[valid_shared])) if valid_shared.any() else np.nan
+                values = values.loc[valid_shared]
+                row[target] = float(values.median()) if len(values) else np.nan
+                row[target + "_n"] = len(values)
+
             row["pose_mask_box_iou_median"] = (
                 float(np.nanmedian(overlap)) if np.isfinite(overlap).any() else np.nan
             )
@@ -117,8 +164,8 @@ def run_pose_baseline(
 
     pose = pd.DataFrame(rows)
     merged = features.merge(pose, on="episode_id", how="left", validate="one_to_one")
-    # Save inference and diagnostics before any statistical comparison. This
-    # guarantees that failed smoke tests remain inspectable.
+
+
     pose.to_csv(output_root / "pose_bout_features.csv", index=False)
     merged.to_csv(output_root / "prism_pose_merged.csv", index=False)
     if "pose_valid_pair_fraction" not in merged:
@@ -126,19 +173,9 @@ def run_pose_baseline(
     valid = merged["pose_valid_pair_fraction"].fillna(0) >= minimum_valid_pair_fraction
     analysis = merged.loc[valid].copy()
 
-    total_flow = choose_column(analysis, [
-        "prism_intensity_total",
-        "optical_flow_pixel_p75_body_heights_per_sec_median_total",
-    ])
-    residual_flow = choose_column(analysis, [
-        "prism_intensity_torso_corrected",
-        "prism_intensity",
-        "optical_flow_pixel_p75_body_heights_per_sec_median",
-    ])
-    torso_flow = choose_column(analysis, [
-        "prism_torso_translation_speed",
-        "optical_flow_torso_translation_speed_body_heights_per_sec_median",
-    ])
+    total_flow = "flow_total_shared_pose_pairs"
+    residual_flow = "flow_residual_shared_pose_pairs"
+    torso_flow = "flow_torso_shared_pose_pairs"
 
     comparisons = []
     if total_flow and "pose_total_motion_p75_mask_heights_per_sec" in analysis:
@@ -160,6 +197,8 @@ def run_pose_baseline(
             "pose_torso_translation_vs_flow_torso_translation",
         ))
 
+    if not comparisons:
+        raise ValueError("No paired pose metrics available; inspect pose_bout_features.csv and pose_error.")
     agreement = []
     for index, (x, y, name) in enumerate(comparisons):
         agreement.extend(agreement_rows(
@@ -197,7 +236,7 @@ def run_pose_baseline(
         "total_flow_column": total_flow,
         "torso_corrected_flow_column": residual_flow,
         "torso_translation_flow_column": torso_flow,
-        "frame_pair_alignment": "intersection_with_frozen_optical_flow_pairs",
+        "frame_pair_alignment": "exact_comparison_specific_intersection; frozen_flow_pair_height",
         "minimum_valid_pair_fraction": minimum_valid_pair_fraction,
         "confidence_threshold": confidence_threshold,
         "maximum_interpolation_gap": maximum_interpolation_gap,
@@ -223,7 +262,7 @@ def run_pose_baseline(
             "torso_corrected_flow": residual_flow,
             "torso_translation_flow": torso_flow,
         },
-        "frame_pair_alignment": "intersection_with_frozen_optical_flow_pairs",
+        "frame_pair_alignment": "exact_comparison_specific_intersection; frozen_flow_pair_height",
     }
     (output_root / "pose_baseline_settings.json").write_text(
         json.dumps(settings, indent=2, sort_keys=True) + "\n", encoding="utf-8"

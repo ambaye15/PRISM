@@ -1,15 +1,13 @@
-"""Frequency and persistent periodicity from signed optical-flow states."""
-
 import numpy as np
 
 from .core import cycle_return_distance, persistence_summary
-from .embedding import interpolation_operators, knn_density_selection
+from .embedding import interpolation_operators
 from .masks import TopologySettings
 from .period import _spectral_peak
 
 
 def body_grid(flow, region, mask, body_height, delta_time, grid_shape):
-    """Map a signed flow field to a fixed body-centred coordinate grid."""
+
     import cv2
 
     rows, columns = np.nonzero(mask)
@@ -90,10 +88,14 @@ def _period_from_distance(distance, timestamps, settings):
     max_lag = len(distance) // 2
     if max_lag < 8:
         raise ValueError("flow trajectory is too short for lagged-SSM frequency")
-    profile = np.asarray(
-        [np.mean(np.diag(distance, k=lag)) for lag in range(1, max_lag + 1)],
-        dtype=np.float64,
-    )
+    power = settings.flow_lag_profile_power
+    if power not in (1, 2):
+        raise ValueError("flow_lag_profile_power must be 1 or 2")
+    profile = np.asarray([
+        np.mean(np.diag(distance, k=lag) ** power)
+        for lag in range(1, max_lag + 1)
+    ], dtype=np.float64)
+
     dt = float(np.median(np.diff(timestamps)))
     if settings.period_sec is not None:
         period = float(settings.period_sec)
@@ -184,7 +186,7 @@ def analyze_flow_states(
     settings=None,
     clip_mad=6.0,
 ):
-    """Estimate frequency and H1 periodicity from total signed flow."""
+
     settings = settings or TopologySettings()
     states = np.asarray(states, dtype=np.float64)
     confidence = np.asarray(confidence, dtype=np.float64)
@@ -204,28 +206,36 @@ def analyze_flow_states(
     features = _features(states, confidence)
     gram, state_distance = _geometry(features)
     period = _period_from_distance(state_distance, timestamps, settings)
-    starts, scale, normalized = _window_distances(
-        gram,
-        timestamps,
-        period["period_sec"],
-        settings.d,
-        settings.n_points,
-    )
-    density = knn_density_selection(
-        scale,
-        k=settings.density_k,
-        retain_fraction=settings.density_retain_fraction,
-    )
-    keep = np.flatnonzero(density["keep_mask"])
-    starts = starts[keep]
-    scale = scale[np.ix_(keep, keep)]
-    normalized = normalized[np.ix_(keep, keep)]
-    scale_summary, scale_diagram = persistence_summary(
-        scale, settings.compute_h1, normalized_cloud=False
-    )
-    normalized_summary, normalized_diagram = persistence_summary(
-        normalized, settings.compute_h1, normalized_cloud=True
-    )
+    try:
+        starts, scale, normalized = _window_distances(
+            gram,
+            timestamps,
+            period["period_sec"],
+            settings.d,
+            settings.n_points,
+        )
+        scale_summary, scale_diagram = persistence_summary(
+            scale, settings.compute_h1, normalized_cloud=False
+        )
+        normalized_summary, normalized_diagram = persistence_summary(
+            normalized, settings.compute_h1, normalized_cloud=True
+        )
+    except ValueError as error:
+        return {
+            "summary": {
+                "representation": "camera-corrected total signed optical flow",
+                "period": {key: value for key, value in period.items()
+                           if key not in {"frequency_hz_grid", "power", "lag_profile"}},
+                "embedding": {"d": settings.d, "window_samples": settings.d + 1,
+                              "n_states": len(states), "n_windows_retained": 0},
+                "normalized": {}, "scale": {},
+                "issues": [{"stage": "periodicity", "error": str(error)}],
+                "clip_limit_body_heights_per_sec": clip_limit,
+            },
+            "state_distance": state_distance,
+            "frequency_hz_grid": period["frequency_hz_grid"],
+            "frequency_power": period["power"], "lag_profile": period["lag_profile"],
+        }
     return {
         "summary": {
             "representation": "camera-corrected total signed optical flow",
@@ -238,7 +248,7 @@ def analyze_flow_states(
                 "d": settings.d,
                 "window_samples": settings.d + 1,
                 "n_states": int(len(states)),
-                "n_windows_retained": int(len(keep)),
+                "n_windows_retained": int(len(starts)),
             },
             "normalized": normalized_summary,
             "scale": scale_summary,

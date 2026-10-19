@@ -1,6 +1,3 @@
-"""Deterministic image and mask perturbations for PRISM stress tests."""
-
-
 import cv2
 import numpy as np
 from scipy.ndimage import binary_dilation, binary_erosion, shift
@@ -23,7 +20,7 @@ def degrade_sequence(
     mask_occlusion_fraction  = 0.0,
     mask_morphology_px  = 0,
 )    :
-    """Apply reproducible degradation and return frames, masks, retained indices."""
+
     rng = np.random.default_rng(seed)
     frames = np.asarray(frames).copy()
     masks = np.asarray(masks, dtype=bool).copy()
