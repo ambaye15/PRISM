@@ -43,7 +43,7 @@ Extent describes silhouette variation, not a joint's maximum reach. Viewpoint an
 Horizontal and vertical flow retain their signs and are pooled on a body grid. PRISM applies confidence weighting and robust clipping, then analyzes an uninterrupted valid run. For the resulting flow-state distances $D_{ij}$, the lag profile is
 
 $$
-g_q(\ell)=\operatorname{mean}_i D_{i,i+\ell}^{\,q}.
+g_q(\ell)=mean_i D_{i,i+\ell}^{\,q}.
 $$
 
 The interpolated spectral peak of this profile supplies frequency $f$ and period $T=1/f$. Power 1 averages distances; power 2 averages squared distances.
