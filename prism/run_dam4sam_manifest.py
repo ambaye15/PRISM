@@ -1,12 +1,3 @@
-#!/usr/bin/env python3
-"""Stream a PRISM video through DAM4SAM and retain annotated-bout masks.
-
-The tracker sees every frame from the prompt frame onward. Masks are packed and
-saved only where the frame-aligned manifest annotation is nonzero (plus optional
-context frames). A full tracking overlay can be written for identity QC.
-"""
-
-
 import argparse
 import hashlib
 import json
@@ -22,7 +13,7 @@ from PIL import Image
 
 try:
     import cv2
-except ModuleNotFoundError:  # Allows --help and metadata helpers without OpenCV.
+except ModuleNotFoundError:
     cv2 = None
 
 

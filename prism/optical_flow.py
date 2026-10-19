@@ -1,5 +1,3 @@
-"""Subject-masked optical-flow measurements for annotated SMM bouts."""
-
 import csv
 import json
 from pathlib import Path
@@ -11,7 +9,7 @@ from ._records import asdict, field, record
 
 @record
 class OpticalFlowSettings:
-    """Configuration for body-scale-normalized visual motion measurements."""
+
 
     backend = field("dis")
     device = field("auto")
@@ -44,7 +42,7 @@ class OpticalFlowSettings:
 
 
 def _prepare_flow_frame(frame, sigma):
-    """Apply the validated light spatial smoothing used before DIS."""
+
     if sigma is None or float(sigma) <= 0:
         return frame
     import cv2
@@ -126,7 +124,7 @@ def _dilate(mask, iterations):
 
 
 def _smooth_mask_heights(masks, valid, window):
-    """Return a robust body-scale trajectory without framewise mask jitter."""
+
     raw = np.asarray(
         [
             _mask_height(mask) if bool(is_valid) else np.nan
@@ -189,7 +187,7 @@ def _restore_flow_resolution(flow, output_shape, scale_x, scale_y):
 
 
 class OpenCvFlowEstimator:
-    """Dense optical flow using algorithms distributed with OpenCV."""
+
 
     def __init__(self, backend, maximum_dimension):
         import cv2
@@ -238,7 +236,7 @@ class OpenCvFlowEstimator:
 
 
 class RaftFlowEstimator:
-    """Optional torchvision RAFT estimator for the paper-quality comparison."""
+
 
     def __init__(self, backend, device, maximum_dimension):
         import torch
@@ -346,7 +344,7 @@ def _background_translation(flow, previous_mask, current_mask, body_height):
 
 
 def _dense_transform_flow(matrix, shape):
-    """Convert a 2x3 image transform into its dense displacement field."""
+
     height, width = shape
     y_grid, x_grid = np.indices((height, width), dtype=np.float32)
     transformed_x = (
@@ -368,7 +366,7 @@ def _ransac_camera_flow(
     body_height,
     settings,
 ):
-    """Estimate global background motion using tracked features and RANSAC."""
+
     import cv2
 
     exclusion = _morphology_iterations(
@@ -593,7 +591,7 @@ def _camera_corrected_flow(
 
 
 def _forward_backward_consistency(flow, backward_flow, body_height, threshold):
-    """Return pixels whose forward and backward displacements approximately cancel."""
+
     import cv2
 
     height, width = flow.shape[:2]
@@ -661,7 +659,7 @@ def _measurement_region(
 
 
 def _torso_core_region(mask, valid_region, *, settings):
-    """Return a central elliptical proxy for bulk torso translation."""
+
     rows, columns = np.nonzero(mask)
     if not len(rows):
         return np.zeros_like(mask, dtype=bool)
@@ -687,7 +685,7 @@ def _torso_core_region(mask, valid_region, *, settings):
 def _vector_statistics(
     vectors, *, body_height, delta_time, active_threshold
 ):
-    """Compute robust frame-pair statistics for total or residual flow."""
+
     vectors = np.asarray(vectors, dtype=np.float64)
     magnitude_pixels = np.linalg.norm(vectors, axis=1)
     magnitude = magnitude_pixels / (body_height * delta_time)
@@ -725,7 +723,7 @@ def summarize_flow_pair(
     backward_flow=None,
     body_height_override=None,
 ):
-    """Summarize one forward flow field inside the tracked participant."""
+
     if flow.ndim != 3 or flow.shape[2] != 2:
         raise ValueError("flow must have shape HxWx2")
     if previous_mask.shape != flow.shape[:2] or current_mask.shape != flow.shape[:2]:
@@ -901,7 +899,7 @@ def _signed_flow_state(
     delta_time,
     settings,
 ):
-    """Return the camera-corrected total signed-flow state for topology."""
+
     from .topology.flow import body_grid
 
     region = _measurement_region(
@@ -1040,12 +1038,12 @@ def analyze_optical_flow_arrays(
     estimator=None,
     valid_mask=None,
 ):
-    """Run the production optical-flow estimator on in-memory arrays.
 
-    This is the shared API used by controlled Skeleton Lab validation. Real
-    bouts use :func:`analyze_optical_flow_episode`, which delegates to the same
-    flow, camera-correction, mask-consistency, and torso-correction primitives.
-    """
+
+
+
+
+
     settings = settings or OpticalFlowSettings()
     frames = np.asarray(frames)
     masks = np.asarray(masks, dtype=bool)
@@ -1169,7 +1167,7 @@ def _read_video(path):
 
 
 def load_saved_masks(path):
-    """Load original-resolution SAM masks and timing arrays from one run."""
+
     with np.load(path) as saved:
         if "source_masks_packed" not in saved.files:
             raise ValueError(
@@ -1253,7 +1251,7 @@ def analyze_optical_flow_episode(
     create_video = False,
     force = False,
 ):
-    """Measure visual motion using an existing completed SAM2 run."""
+
     run_dir = run_dir.expanduser().resolve()
     summary_path = run_dir / "optical_flow_summary.json"
     requested_settings = asdict(settings)

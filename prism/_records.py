@@ -1,5 +1,3 @@
-"""Small record classes without source-level type annotations."""
-
 import copy
 
 

@@ -1,5 +1,3 @@
-"""Batch runner for optical flow inside previously saved SAM2 masks."""
-
 import argparse
 import csv
 import json

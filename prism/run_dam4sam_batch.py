@@ -1,12 +1,3 @@
-#!/usr/bin/env python3
-"""Run the PRISM DAM4SAM manifest tracker sequentially over many videos.
-
-The batch runner selects and records one initialization box per video, invokes
-run_dam4sam_manifest.py, skips verified completed results, and safely reruns an
-incomplete video after an interruption.
-"""
-
-
 import argparse
 import json
 import subprocess

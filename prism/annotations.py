@@ -1,5 +1,3 @@
-"""Validated annotation manifests and exact frame-to-bout conversion."""
-
 import csv
 import json
 import re

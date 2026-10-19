@@ -1,7 +1,3 @@
-#!/usr/bin/env python3
-"""Merge finalized PRISM intensity, extent, and periodicity measurements."""
-
-
 import argparse
 import json
 from pathlib import Path
@@ -13,6 +9,7 @@ def main()  :
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--runs-root", type=Path, required=True)
     parser.add_argument("--output", type=Path, required=True)
+    parser.add_argument("--metadata", type=Path, help="Authoritative episode metadata CSV, joined one-to-one by episode_id")
     args = parser.parse_args()
     root = args.runs_root.expanduser().resolve()
     flow_path = root / "optical_flow_bout_features.csv"
@@ -26,6 +23,16 @@ def main()  :
         raise ValueError("Feature inputs contain duplicate episode_id values")
     shared = [c for c in flow.columns if c in topology.columns and c != "episode_id"]
     merged = flow.merge(topology.drop(columns=shared), on="episode_id", how="outer", validate="one_to_one")
+    if args.metadata:
+        metadata = pd.read_csv(args.metadata, dtype={"episode_id":str})
+        if metadata.episode_id.duplicated().any():raise ValueError('Duplicate metadata episode_id')
+        columns = [c for c in metadata.columns if c != 'episode_id']
+        merged = merged.drop(columns=[c for c in columns if c in merged]).merge(metadata,on='episode_id',how='left',validate='one_to_one')
+    if 'start_sec' not in merged and 'core_start_frame' in merged:
+        merged['start_sec'] = pd.to_numeric(merged.core_start_frame) / pd.to_numeric(merged.fps)
+    if 'duration_sec' not in merged:
+        ending = 'core_end_frame' if 'core_end_frame' in merged else 'core_end_frame_exclusive'
+        merged['duration_sec'] = (pd.to_numeric(merged[ending])-pd.to_numeric(merged.core_start_frame))/pd.to_numeric(merged.fps)
     total_column = "optical_flow_pixel_p75_body_heights_per_sec_median"
     torso_column = "optical_flow_pixel_p75_torso_corrected_body_heights_per_sec_median"
     merged["prism_intensity_total"] = merged[total_column]
@@ -42,6 +49,9 @@ def main()  :
     merged["prism_periodicity"] = merged["flow_normalized_periodicity_score"]
     merged["prism_frequency_hz"] = merged["topo_flow_frequency_hz"]
     merged["prism_period_sec"] = merged["topo_flow_period_sec"]
+    from prism.analysis.real_video import add_interbout_intervals
+    merged = add_interbout_intervals(merged)
+
     args.output.expanduser().resolve().parent.mkdir(parents=True, exist_ok=True)
     output = args.output.expanduser().resolve()
     merged.to_csv(output, index=False)

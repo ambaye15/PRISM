@@ -1,12 +1,3 @@
-#!/usr/bin/env python3
-"""Convert full-video DAM4SAM tracks into PRISM episode-run inputs.
-
-This adapter never reruns segmentation. It slices the packed, frame-aligned
-DAM4SAM masks using the existing annotated episode metadata and writes the NPZ
-layout consumed by prism.run_optical_flow and prism.run_mask_recurrence.
-"""
-
-
 import argparse
 import csv
 import json

@@ -1,5 +1,3 @@
-"""Batch PRISM topology: flow frequency/periodicity plus mask RMS extent."""
-
 import argparse
 import csv
 import json
@@ -11,7 +9,7 @@ from ._records import asdict
 from .topology import TopologySettings, analyze_flow_states, framewise_rms_extent
 
 
-SCHEMA = "prism_flow_topology.v3"
+SCHEMA = "prism_flow_topology.v6"
 
 
 def build_parser():
@@ -31,8 +29,6 @@ def build_parser():
     parser.add_argument("--max-period-sec", type=float, default=5.0)
     parser.add_argument("--min-cycles", type=float, default=2.5)
     parser.add_argument("--spectral-concentration-min", type=float, default=0.15)
-    parser.add_argument("--density-k", type=int, default=20)
-    parser.add_argument("--density-retain-fraction", type=float, default=0.80)
     parser.add_argument("--minimum-valid-mask-fraction", type=float, default=0.80)
     parser.add_argument("--minimum-extent-frames", type=int, default=8)
     parser.add_argument("--flow-clip-mad", type=float, default=6.0)
@@ -242,6 +238,9 @@ def analyze_episode(
                 score_min,
             )
         )
+        for issue in flow_result["summary"].get("issues", []):
+            issues.append({"stage": issue["stage"], "severity": "unavailable",
+                           "error_type": "ValueError", "error": issue["error"]})
         files["flow"] = _save_flow_analysis(flow_result, output)
     except Exception as error:
         issues.append(issue_record("flow_topology", error))
@@ -294,8 +293,6 @@ def main():
         min_cycles=args.min_cycles,
         spectral_concentration_min=args.spectral_concentration_min,
         frequency_method="lagged_ssm",
-        density_k=args.density_k,
-        density_retain_fraction=args.density_retain_fraction,
         compute_h1=not args.no_h1,
     )
     settings.minimum_valid_mask_fraction = args.minimum_valid_mask_fraction
@@ -328,6 +325,7 @@ def main():
                     args.flow_clip_mad,
                     args.minimum_extent_frames,
                 )
+                summary_path.write_text(json.dumps(topology, indent=2) + "\n")
                 completed += 1
             rows.append({**identifiers(source, episode_dir.name), **(topology.get("measurements") or {})})
             for issue in topology.get("issues") or []:
