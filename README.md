@@ -37,3 +37,13 @@ python -m pip install -e '.[plotting]'
 - [Reproduction](docs/REPRODUCE.md): setup, required inputs, commands, and outputs for the paper's experiments.
 
 Synthetic experiments use the `paper` extra. Pose inference uses `pose`, and DAM4SAM tracking runs in its own environment. Participant recordings, checkpoints, and saved experiment results are not bundled.
+
+## License
+
+Copyright (c) 2026 Austin MBaye.
+
+This project is licensed under the [PolyForm Noncommercial License 1.0.0](LICENSE).
+
+Noncommercial use, including academic research, personal study, and experimentation, is permitted subject to the license terms.
+
+Commercial use requires separate written permission from the copyright holder.
